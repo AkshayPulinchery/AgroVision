@@ -7,22 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   Database, 
-  Upload, 
   RefreshCw, 
   Settings2, 
   ShieldCheck,
-  FileSpreadsheet,
-  Plus,
-  BarChart3,
-  CheckCircle2,
-  Trash2,
-  Cpu,
   Zap,
-  Loader2
+  Loader2,
+  Trash2,
+  BarChart3,
+  Cpu
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
-import { collection, addDoc, serverTimestamp, writeBatch, doc } from "firebase/firestore";
+import { collection, writeBatch, doc, serverTimestamp, query, getDocs, deleteDoc } from "firebase/firestore";
 
 export default function AdminPortal() {
   const { toast } = useToast();
@@ -30,8 +26,9 @@ export default function AdminPortal() {
   const firestore = useFirestore();
   const [retraining, setRetraining] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
   
-  const [datasets, setDatasets] = useState([
+  const [datasets] = useState([
     { id: "DS-001", name: "Regional Harvest 2023", records: 1200, status: "Active", date: "2023-12-10" },
     { id: "DS-002", name: "Soil Health Aggregates", records: 450, status: "Active", date: "2024-01-05" },
     { id: "DS-003", name: "Synthetic Climate Set A", records: 400, status: "Archive", date: "2024-02-15" },
@@ -47,6 +44,27 @@ export default function AdminPortal() {
     });
   };
 
+  const handleClearDatabase = async () => {
+    if (!firestore || !user) return;
+    setCleaning(true);
+    try {
+      const collections = ["predictions", "fields", "irrigation_logs", "plans"];
+      for (const colName of collections) {
+        const q = query(collection(firestore, colName));
+        const snapshot = await getDocs(q);
+        const batch = writeBatch(firestore);
+        snapshot.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+      toast({ title: "Database Cleared", description: "All prototype data has been removed." });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Error", description: "Failed to clear database.", variant: "destructive" });
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   const handleSuperSeed = async () => {
     if (!firestore || !user) {
       toast({ title: "Auth Required", description: "Sign in to seed data.", variant: "destructive" });
@@ -57,15 +75,16 @@ export default function AdminPortal() {
     try {
       const crops = ["Corn", "Soybeans", "Wheat", "Rice", "Cotton"];
       const fieldNames = ["North Hill", "East Brook", "Valley Basin", "South Plateau", "River Delta"];
+      const irrigationTypes = ["Drip", "Sprinkler", "Pivot", "Surface"];
       
-      // Seed 500 Predictions in batches (Firestore batch limit is 500)
-      const batch = writeBatch(firestore);
+      // Batch 1: 450 Predictions (to stay under 500 limit per batch)
+      const batch1 = writeBatch(firestore);
       const predictionsRef = collection(firestore, "predictions");
       
-      for (let i = 0; i < 500; i++) {
+      for (let i = 0; i < 450; i++) {
         const crop = crops[Math.floor(Math.random() * crops.length)];
         const docRef = doc(predictionsRef);
-        batch.set(docRef, {
+        batch1.set(docRef, {
           userId: user.uid,
           crop,
           soilPH: Number((Math.random() * (7.5 - 5.5) + 5.5).toFixed(1)),
@@ -74,19 +93,23 @@ export default function AdminPortal() {
           fertilizer: Math.floor(Math.random() * 100) + 100,
           predictedYield: Math.floor(Math.random() * 5000) + 3000,
           confidence: 0.85 + Math.random() * 0.1,
-          createdAt: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 365) // Random date in last year
+          createdAt: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 365)
         });
       }
+      await batch1.commit();
 
-      // Seed 20 Fields
+      // Batch 2: 25 Fields and 50 Irrigation Logs
+      const batch2 = writeBatch(firestore);
       const fieldsRef = collection(firestore, "fields");
-      for (let i = 0; i < 20; i++) {
+      const logsRef = collection(firestore, "irrigation_logs");
+
+      for (let i = 0; i < 25; i++) {
         const fieldDocRef = doc(fieldsRef);
-        batch.set(fieldDocRef, {
+        batch2.set(fieldDocRef, {
           name: `${fieldNames[i % fieldNames.length]} Sector ${Math.floor(i / 5) + 1}`,
           crop: crops[Math.floor(Math.random() * crops.length)],
-          lat: 34.0522 + (Math.random() - 0.5) * 0.1,
-          lng: -118.2437 + (Math.random() - 0.5) * 0.1,
+          lat: 34.0522 + (Math.random() - 0.5) * 0.05,
+          lng: -118.2437 + (Math.random() - 0.5) * 0.05,
           moisture: Math.floor(Math.random() * 40) + 40,
           soilPH: Number((Math.random() * (7.2 - 5.8) + 5.8).toFixed(1)),
           temp: Math.floor(Math.random() * 10) + 20,
@@ -95,15 +118,27 @@ export default function AdminPortal() {
         });
       }
 
-      await batch.commit();
+      for (let i = 0; i < 50; i++) {
+        const logDocRef = doc(logsRef);
+        batch2.set(logDocRef, {
+          fieldName: fieldNames[Math.floor(Math.random() * fieldNames.length)],
+          type: irrigationTypes[Math.floor(Math.random() * irrigationTypes.length)],
+          duration: `${Math.floor(Math.random() * 45) + 15} mins`,
+          volume: `${Math.floor(Math.random() * 2000) + 500}L`,
+          timestamp: serverTimestamp(),
+          status: Math.random() > 0.1 ? "Completed" : "In Progress"
+        });
+      }
+      
+      await batch2.commit();
       
       toast({
-        title: "Database Seeded!",
-        description: "Added 500 predictions and 20 field sensors for the event.",
+        title: "Event Ready!",
+        description: "500+ records successfully seeded across all farm sectors.",
       });
     } catch (err) {
       console.error(err);
-      toast({ title: "Seeding Failed", description: "Check console for details.", variant: "destructive" });
+      toast({ title: "Seeding Failed", description: "Database batch limit or permission error.", variant: "destructive" });
     } finally {
       setSeeding(false);
     }
@@ -122,12 +157,21 @@ export default function AdminPortal() {
           </div>
           <div className="flex gap-2">
              <Button 
-                className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 h-10 px-4 font-bold"
+                variant="outline"
+                className="gap-2 text-destructive border-destructive hover:bg-destructive/10"
+                onClick={handleClearDatabase}
+                disabled={cleaning || seeding}
+             >
+                {cleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Wipe Prototype Data
+             </Button>
+             <Button 
+                className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 h-10 px-6 font-bold shadow-lg"
                 onClick={handleSuperSeed}
-                disabled={seeding}
+                disabled={seeding || cleaning}
              >
                 {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                Super Seed 500+ Records
+                Super Seed (500+ Records)
              </Button>
           </div>
         </div>
