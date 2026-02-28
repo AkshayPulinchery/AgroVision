@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -80,6 +81,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Permanent Admin Access for Prototyping Convenience */}
+          <Link href="/admin/manage-secret-portal" className="hidden sm:block">
+            <Button variant="outline" size="sm" className="gap-2 border-primary/20 hover:bg-primary/5 text-primary font-bold">
+              <ShieldCheck className="h-4 w-4" />
+              Admin
+            </Button>
+          </Link>
+
           <Link href="/notifications">
             <Button variant="ghost" size="icon" className="relative hidden sm:flex">
               <Bell className="h-5 w-5" />
@@ -132,18 +141,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <div className="flex items-center gap-2">
-              <Link href="/admin/manage-secret-portal">
-                <Button variant="ghost" size="icon" className="text-primary hover:bg-primary/10">
-                  <ShieldCheck className="h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/login">
-                <Button size="sm" className="font-bold rounded-full px-6">
-                  Login
-                </Button>
-              </Link>
-            </div>
+            <Link href="/login">
+              <Button size="sm" className="font-bold rounded-full px-6">
+                Login
+              </Button>
+            </Link>
           )}
         </div>
       </header>
