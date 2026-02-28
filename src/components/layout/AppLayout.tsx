@@ -8,16 +8,29 @@ import {
   Settings, 
   Menu, 
   Bell, 
-  User,
+  User as UserIcon,
   LineChart,
   ClipboardCheck,
-  Droplets
+  Droplets,
+  LogOut,
+  ChevronDown
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useAuth, useUser } from "@/firebase";
+import { signOut } from "firebase/auth";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -30,6 +43,14 @@ const navigation = [
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user, loading } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push("/login");
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground font-body">
@@ -43,34 +64,83 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-64 p-0">
-              <SidebarContent pathname={pathname} />
+              <SidebarContent pathname={pathname} user={user} />
             </SheetContent>
           </Sheet>
           <div className="flex items-center gap-2">
             <div className="bg-primary p-1.5 rounded-lg">
               <Sprout className="h-6 w-6 text-primary-foreground" />
             </div>
-            <span className="text-xl font-headline font-bold text-primary tracking-tight">
+            <span className="text-xl font-headline font-bold text-primary tracking-tight hidden sm:inline">
               AgriYield AI
             </span>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="relative">
+          <Button variant="ghost" size="icon" className="relative hidden sm:flex">
             <Bell className="h-5 w-5" />
             <span className="absolute top-2 right-2 h-2 w-2 bg-accent rounded-full border-2 border-card" />
           </Button>
-          <Button variant="ghost" size="icon">
-            <User className="h-5 w-5" />
-          </Button>
+
+          {loading ? (
+            <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+          ) : user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-10 flex items-center gap-2 px-2 hover:bg-muted/50 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.photoURL || ""} alt={user.displayName || "User"} />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                      {user.displayName?.[0] || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-bold hidden md:inline-block max-w-[120px] truncate">
+                    {user.displayName}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user.displayName}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="flex items-center gap-2 cursor-pointer">
+                    <Settings className="h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link href="/login">
+              <Button size="sm" className="font-bold rounded-full px-6">
+                Login
+              </Button>
+            </Link>
+          )}
         </div>
       </header>
 
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
         <aside className="hidden md:block w-64 border-r bg-card sticky top-16 h-[calc(100vh-4rem)]">
-          <SidebarContent pathname={pathname} />
+          <SidebarContent pathname={pathname} user={user} />
         </aside>
 
         {/* Main Content Area */}
@@ -103,7 +173,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SidebarContent({ pathname }: { pathname: string }) {
+function SidebarContent({ pathname, user }: { pathname: string; user: any }) {
   return (
     <div className="flex flex-col h-full py-4">
       <div className="px-4 mb-8">
@@ -135,7 +205,7 @@ function SidebarContent({ pathname }: { pathname: string }) {
 
       <div className="px-4 mt-auto">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
-          Account
+          Support
         </p>
         <div className="space-y-1">
           <Link
