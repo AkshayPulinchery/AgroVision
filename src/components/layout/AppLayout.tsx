@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -78,10 +79,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="relative hidden sm:flex">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-2 right-2 h-2 w-2 bg-accent rounded-full border-2 border-card" />
-          </Button>
+          <Link href="/notifications">
+            <Button variant="ghost" size="icon" className="relative hidden sm:flex">
+              <Bell className="h-5 w-5" />
+              <span className="absolute top-2 right-2 h-2 w-2 bg-accent rounded-full border-2 border-card" />
+            </Button>
+          </Link>
 
           {loading ? (
             <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
