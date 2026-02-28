@@ -1,4 +1,3 @@
-
 "use client";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -69,6 +68,7 @@ export default function MapPage() {
 
   // Combine DB fields with MOCK fields for a dense prototype
   const fields = useMemo(() => {
+    if (!mounted) return [];
     const combined = [...MOCK_FIELDS];
     if (dbFields) {
       dbFields.forEach((dbF: any) => {
@@ -78,7 +78,7 @@ export default function MapPage() {
       });
     }
     return combined as Field[];
-  }, [dbFields]);
+  }, [dbFields, mounted]);
 
   useEffect(() => {
     setMounted(true);
@@ -95,7 +95,15 @@ export default function MapPage() {
     setSyncing(false);
   };
 
-  if (!mounted) return null;
+  if (!mounted) {
+    return (
+      <AppLayout>
+        <div className="w-full h-full bg-muted flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

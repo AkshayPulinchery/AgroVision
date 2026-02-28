@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +41,11 @@ const waterData = [
 
 export default function WaterIntelligence() {
   const firestore = useFirestore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   const logsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -58,11 +62,13 @@ export default function WaterIntelligence() {
   const { data: dbFields } = useCollection(fieldsQuery);
 
   const logs = useMemo(() => {
+    if (!mounted) return [];
     if (dbLogs && dbLogs.length > 0) return dbLogs;
     return MOCK_IRRIGATION_LOGS.slice(0, 10);
-  }, [dbLogs]);
+  }, [dbLogs, mounted]);
 
   const moistureData = useMemo(() => {
+    if (!mounted) return [];
     const allFields = dbFields && dbFields.length > 0 ? dbFields : MOCK_FIELDS.slice(0, 15);
     return allFields.map((f: any) => ({
       field: f.name,
@@ -70,12 +76,22 @@ export default function WaterIntelligence() {
       status: f.moisture > 60 ? "Optimal" : f.moisture > 40 ? "Moderate" : "Low",
       color: f.moisture > 60 ? "bg-emerald-500" : f.moisture > 40 ? "bg-amber-500" : "bg-red-500"
     }));
-  }, [dbFields]);
+  }, [dbFields, mounted]);
 
   const avgMoisture = useMemo(() => {
     if (!moistureData.length) return 0;
     return Math.round(moistureData.reduce((acc, f) => acc + f.level, 0) / moistureData.length);
   }, [moistureData]);
+
+  if (!mounted) {
+    return (
+      <AppLayout>
+        <div className="w-full h-full flex items-center justify-center py-20">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

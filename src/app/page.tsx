@@ -49,9 +49,10 @@ export default function Dashboard() {
 
   // Fallback to MOCK data if DB is empty or loading
   const displayPredictions = useMemo(() => {
+    if (!isMounted) return [];
     if (dbPredictions && dbPredictions.length > 0) return dbPredictions;
     return MOCK_PREDICTIONS.slice(0, 5);
-  }, [dbPredictions]);
+  }, [dbPredictions, isMounted]);
 
   const avgTemp = useMemo(() => {
     if (!isMounted) return 0;
@@ -116,7 +117,11 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {displayPredictions.map((item: any) => (
+                {!isMounted ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : displayPredictions.map((item: any) => (
                   <div key={item.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer group">
                     <div className="flex items-center gap-4">
                       <div className="bg-white p-2.5 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
