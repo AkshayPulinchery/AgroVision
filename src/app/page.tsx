@@ -23,9 +23,12 @@ import { formatDistanceToNow } from "date-fns";
 
 export default function Dashboard() {
   const firestore = useFirestore();
-  const [weatherTime, setWeatherTime] = useState(new Date().toLocaleTimeString());
+  const [weatherTime, setWeatherTime] = useState<string | null>(null);
 
   useEffect(() => {
+    // Defer setting time to avoid hydration mismatch
+    setWeatherTime(new Date().toLocaleTimeString());
+    
     const timer = setInterval(() => {
       setWeatherTime(new Date().toLocaleTimeString());
     }, 1000);
@@ -163,7 +166,7 @@ export default function Dashboard() {
                     <ThermometerSun className="h-8 w-8 text-orange-500" />
                     <div>
                       <div className="text-xl font-bold">{avgTemp}°C</div>
-                      <div className="text-[10px] text-muted-foreground uppercase font-bold">{weatherTime}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase font-bold">{weatherTime || '--:--:--'}</div>
                     </div>
                   </div>
                   <div className="text-right">
