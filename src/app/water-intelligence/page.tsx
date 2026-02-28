@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from "react";
@@ -8,8 +9,6 @@ import {
   Droplets, 
   Waves, 
   CloudRain, 
-  CheckCircle2, 
-  AlertTriangle,
   Settings2,
   RefreshCw,
   Plus,
@@ -29,8 +28,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useFirestore, useCollection } from "@/firebase";
 import { collection, query, orderBy, limit } from "firebase/firestore";
+import { MOCK_FIELDS, MOCK_IRRIGATION_LOGS } from "@/lib/mock-data";
 
-// Simulated usage for the graph (can be mapped to logs in future)
 const waterData = [
   { day: 'Mon', usage: 120 },
   { day: 'Tue', usage: 140 },
@@ -49,24 +48,29 @@ export default function WaterIntelligence() {
     return query(collection(firestore, "irrigation_logs"), orderBy("timestamp", "desc"), limit(10));
   }, [firestore]);
   
-  const { data: logsData, loading: logsLoading } = useCollection(logsQuery);
+  const { data: dbLogs } = useCollection(logsQuery);
 
   const fieldsQuery = useMemo(() => {
     if (!firestore) return null;
     return collection(firestore, "fields");
   }, [firestore]);
   
-  const { data: fieldsData, loading: fieldsLoading } = useCollection(fieldsQuery);
+  const { data: dbFields } = useCollection(fieldsQuery);
+
+  const logs = useMemo(() => {
+    if (dbLogs && dbLogs.length > 0) return dbLogs;
+    return MOCK_IRRIGATION_LOGS.slice(0, 10);
+  }, [dbLogs]);
 
   const moistureData = useMemo(() => {
-    if (!fieldsData) return [];
-    return fieldsData.map((f: any) => ({
+    const allFields = dbFields && dbFields.length > 0 ? dbFields : MOCK_FIELDS.slice(0, 15);
+    return allFields.map((f: any) => ({
       field: f.name,
       level: f.moisture,
       status: f.moisture > 60 ? "Optimal" : f.moisture > 40 ? "Moderate" : "Low",
       color: f.moisture > 60 ? "bg-emerald-500" : f.moisture > 40 ? "bg-amber-500" : "bg-red-500"
     }));
-  }, [fieldsData]);
+  }, [dbFields]);
 
   const avgMoisture = useMemo(() => {
     if (!moistureData.length) return 0;
@@ -79,7 +83,7 @@ export default function WaterIntelligence() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold text-foreground">Water Intelligence</h1>
-            <p className="text-muted-foreground">Smart irrigation monitoring and moisture analytics from Firestore</p>
+            <p className="text-muted-foreground">Smart irrigation monitoring and moisture analytics</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2"><Settings2 className="h-4 w-4" />System Config</Button>
@@ -111,7 +115,7 @@ export default function WaterIntelligence() {
                   <div className="relative w-32 h-32 flex items-center justify-center">
                     <div className="absolute inset-0 border-4 border-white/20 rounded-full"></div>
                     <div className="text-center">
-                      <div className="text-3xl font-black">{fieldsLoading ? '--' : avgMoisture}%</div>
+                      <div className="text-3xl font-black">{avgMoisture}%</div>
                       <div className="text-[10px] font-bold uppercase tracking-wider opacity-60">Avg Moisture</div>
                     </div>
                   </div>
@@ -169,9 +173,7 @@ export default function WaterIntelligence() {
               <CardDescription>Live sensor telemetry</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {fieldsLoading ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>
-              ) : moistureData.length > 0 ? moistureData.map((field, idx) => (
+              {moistureData.map((field, idx) => (
                 <div key={idx} className="space-y-2">
                   <div className="flex justify-between items-end">
                     <h4 className="font-bold text-sm">{field.field}</h4>
@@ -179,11 +181,7 @@ export default function WaterIntelligence() {
                   </div>
                   <Progress value={field.level} className="h-2" />
                 </div>
-              )) : (
-                <div className="text-center py-8 bg-muted/20 rounded-xl">
-                  <p className="text-xs text-muted-foreground">No sensor data linked. Head to the Map to add fields.</p>
-                </div>
-              )}
+              ))}
             </CardContent>
           </Card>
         </div>
@@ -194,43 +192,36 @@ export default function WaterIntelligence() {
             <CardDescription>Real-time log from automated valves</CardDescription>
           </CardHeader>
           <CardContent>
-            {logsLoading ? (
-              <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-muted-foreground">
-                      <th className="text-left pb-4 font-medium">Field Sector</th>
-                      <th className="text-left pb-4 font-medium">Valve Type</th>
-                      <th className="text-left pb-4 font-medium">Duration</th>
-                      <th className="text-left pb-4 font-medium">Water Volume</th>
-                      <th className="text-right pb-4 font-medium">Status</th>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-muted-foreground">
+                    <th className="text-left pb-4 font-medium">Field Sector</th>
+                    <th className="text-left pb-4 font-medium">Valve Type</th>
+                    <th className="text-left pb-4 font-medium">Duration</th>
+                    <th className="text-left pb-4 font-medium">Water Volume</th>
+                    <th className="text-right pb-4 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {logs.map((row: any, idx: number) => (
+                    <tr key={row.id || idx} className="group hover:bg-muted/30 transition-colors">
+                      <td className="py-4 font-bold">{row.fieldName}</td>
+                      <td className="py-4 text-muted-foreground">{row.type}</td>
+                      <td className="py-4 text-muted-foreground">{row.duration}</td>
+                      <td className="py-4 font-medium">{row.volume}</td>
+                      <td className="py-4 text-right">
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          row.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {row.status}
+                        </span>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {logsData?.map((row: any, idx: number) => (
-                      <tr key={row.id || idx} className="group hover:bg-muted/30 transition-colors">
-                        <td className="py-4 font-bold">{row.fieldName}</td>
-                        <td className="py-4 text-muted-foreground">{row.type}</td>
-                        <td className="py-4 text-muted-foreground">{row.duration}</td>
-                        <td className="py-4 font-medium">{row.volume}</td>
-                        <td className="py-4 text-right">
-                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                            row.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            {row.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                    {!logsData?.length && (
-                      <tr><td colSpan={5} className="py-12 text-center text-muted-foreground">No automated irrigation events recorded yet.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       </div>

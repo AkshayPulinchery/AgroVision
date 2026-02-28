@@ -1,10 +1,12 @@
+
 "use client";
 
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Thermometer, Droplets, Loader2, FlaskConical, BarChart3 } from "lucide-react";
+import { TrendingUp, Droplets, FlaskConical, BarChart3 } from "lucide-react";
 import { useFirestore, useCollection } from "@/firebase";
 import { collection } from "firebase/firestore";
+import { MOCK_FIELDS, MOCK_PREDICTIONS } from "@/lib/mock-data";
 
 export function StatCards() {
   const firestore = useFirestore();
@@ -19,30 +21,30 @@ export function StatCards() {
     return collection(firestore, "fields");
   }, [firestore]);
 
-  const { data: predictions, loading: predLoading } = useCollection(predictionsQuery);
-  const { data: fields, loading: fieldsLoading } = useCollection(fieldsQuery);
+  const { data: dbPredictions } = useCollection(predictionsQuery);
+  const { data: dbFields } = useCollection(fieldsQuery);
 
   const stats = useMemo(() => {
-    const avgYield = predictions?.length 
-      ? Math.round(predictions.reduce((acc, p: any) => acc + (p.predictedYield || 0), 0) / predictions.length)
+    // Merge DB and Mock for statistics
+    const allPredictions = [...MOCK_PREDICTIONS, ...(dbPredictions || [])];
+    const allFields = [...MOCK_FIELDS, ...(dbFields || [])];
+
+    const avgYield = allPredictions.length 
+      ? Math.round(allPredictions.reduce((acc, p: any) => acc + (p.predictedYield || 0), 0) / allPredictions.length)
       : 0;
 
-    const avgMoisture = fields?.length
-      ? Math.round(fields.reduce((acc, f: any) => acc + (f.moisture || 0), 0) / fields.length)
+    const avgMoisture = allFields.length
+      ? Math.round(allFields.reduce((acc, f: any) => acc + (f.moisture || 0), 0) / allFields.length)
       : 0;
 
-    const avgPH = fields?.length
-      ? (fields.reduce((acc, f: any) => acc + (f.soilPH || 0), 0) / fields.length).toFixed(1)
+    const avgPH = allFields.length
+      ? (allFields.reduce((acc, f: any) => acc + (f.soilPH || 0), 0) / allFields.length).toFixed(1)
       : "0";
-
-    const avgTemp = fields?.length
-      ? Math.round(fields.reduce((acc, f: any) => acc + (f.temp || 0), 0) / fields.length)
-      : 0;
 
     return [
       {
         title: "Total Yield Analyzed",
-        value: `${(predictions?.length || 0).toLocaleString()}`,
+        value: `${allPredictions.length.toLocaleString()}`,
         trend: "Across all seasons",
         icon: BarChart3,
         color: "text-primary",
@@ -73,19 +75,7 @@ export function StatCards() {
         bg: "bg-emerald-50",
       },
     ];
-  }, [predictions, fields]);
-
-  if (predLoading || fieldsLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="h-32 border-none shadow-sm flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
-          </Card>
-        ))}
-      </div>
-    );
-  }
+  }, [dbPredictions, dbFields]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
