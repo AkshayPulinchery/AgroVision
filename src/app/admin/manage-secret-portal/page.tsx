@@ -45,7 +45,7 @@ export default function AdminPortal() {
   };
 
   const handleClearDatabase = async () => {
-    if (!firestore || !user) return;
+    if (!firestore) return;
     setCleaning(true);
     try {
       const collections = ["predictions", "fields", "irrigation_logs", "plans"];
@@ -66,8 +66,8 @@ export default function AdminPortal() {
   };
 
   const handleSuperSeed = async () => {
-    if (!firestore || !user) {
-      toast({ title: "Auth Required", description: "Sign in to seed data.", variant: "destructive" });
+    if (!firestore) {
+      toast({ title: "Connection Error", description: "Database is not connected yet.", variant: "destructive" });
       return;
     }
 
@@ -77,7 +77,7 @@ export default function AdminPortal() {
       const fieldNames = ["North Hill", "East Brook", "Valley Basin", "South Plateau", "River Delta"];
       const irrigationTypes = ["Drip", "Sprinkler", "Pivot", "Surface"];
       
-      // Batch 1: 450 Predictions (to stay under 500 limit per batch)
+      // Batch 1: 450 Predictions
       const batch1 = writeBatch(firestore);
       const predictionsRef = collection(firestore, "predictions");
       
@@ -85,7 +85,7 @@ export default function AdminPortal() {
         const crop = crops[Math.floor(Math.random() * crops.length)];
         const docRef = doc(predictionsRef);
         batch1.set(docRef, {
-          userId: user.uid,
+          userId: user?.uid || "demo-farmer-id", // Use demo ID if not logged in
           crop,
           soilPH: Number((Math.random() * (7.5 - 5.5) + 5.5).toFixed(1)),
           rainfall: Math.floor(Math.random() * 800) + 600,
