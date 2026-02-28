@@ -1,4 +1,3 @@
-
 "use client";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -26,11 +25,11 @@ import { useFirestore, useCollection } from "@/firebase";
 import { collection, query, limit, addDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
-// Dynamic import for Leaflet (client-side only) to prevent SSR issues
+// Dynamic import for Leaflet (client-side only)
 const LeafletMap = dynamic(() => import("@/components/map/LeafletMap"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">
+    <div className="w-full h-full bg-muted flex items-center justify-center">
       <div className="text-center">
         <Sprout className="h-12 w-12 text-primary/40 mx-auto animate-bounce" />
         <p className="text-xs font-bold text-muted-foreground mt-4 tracking-widest uppercase">Initializing Sat-Link...</p>
@@ -59,7 +58,7 @@ export default function MapPage() {
   const firestore = useFirestore();
   const fieldsQuery = useMemo(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "fields"), limit(10));
+    return query(collection(firestore, "fields"), limit(20));
   }, [firestore]);
   
   const { data: fieldsData, loading: fieldsLoading } = useCollection(fieldsQuery);
@@ -95,7 +94,7 @@ export default function MapPage() {
       console.error(err);
       toast({
         title: "Error seeding data",
-        description: "Make sure you are logged in and have permissions.",
+        description: "Check your permissions or internet connection.",
         variant: "destructive"
       });
     } finally {
@@ -131,7 +130,7 @@ export default function MapPage() {
                   </div>
                   <h3 className="text-xl font-bold mb-2">No Field Data Found</h3>
                   <p className="text-sm text-muted-foreground mb-8">
-                    Start by seeding your database with demo locations or manually adding your fields.
+                    Start by seeding your database with demo locations to test the mapping system.
                   </p>
                   <Button 
                     className="farmer-button w-full gap-2" 
@@ -277,4 +276,3 @@ export default function MapPage() {
     </AppLayout>
   );
 }
-

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
@@ -7,11 +6,11 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyABuT2GCtu3GyDOKugh51iY9dhi15V6G4Q",
-  authDomain: "agriyield-ai.firebaseapp.com",
-  projectId: "agriyield-ai",
-  storageBucket: "agriyield-ai.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:agriyieldai123456"
+  authDomain: "studio-6018643022-dffb6.firebaseapp.com",
+  projectId: "studio-6018643022-dffb6",
+  storageBucket: "studio-6018643022-dffb6.appspot.com",
+  messagingSenderId: "6018643022",
+  appId: "1:6018643022:web:agriyieldai"
 };
 
 let app: FirebaseApp;
