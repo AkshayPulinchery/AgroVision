@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo } from "react";
@@ -31,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { useFirestore, useCollection } from "@/firebase";
 import { collection, query, orderBy, limit } from "firebase/firestore";
 
+// Simulated usage for the graph (can be mapped to logs in future)
 const waterData = [
   { day: 'Mon', usage: 120 },
   { day: 'Tue', usage: 140 },
@@ -56,11 +56,11 @@ export default function WaterIntelligence() {
     return collection(firestore, "fields");
   }, [firestore]);
   
-  const { data: fieldsData } = useCollection(fieldsQuery);
+  const { data: fieldsData, loading: fieldsLoading } = useCollection(fieldsQuery);
 
   const moistureData = useMemo(() => {
     if (!fieldsData) return [];
-    return fieldsData.map(f => ({
+    return fieldsData.map((f: any) => ({
       field: f.name,
       level: f.moisture,
       status: f.moisture > 60 ? "Optimal" : f.moisture > 40 ? "Moderate" : "Low",
@@ -68,13 +68,18 @@ export default function WaterIntelligence() {
     }));
   }, [fieldsData]);
 
+  const avgMoisture = useMemo(() => {
+    if (!moistureData.length) return 0;
+    return Math.round(moistureData.reduce((acc, f) => acc + f.level, 0) / moistureData.length);
+  }, [moistureData]);
+
   return (
     <AppLayout>
       <div className="space-y-8 max-w-7xl mx-auto pb-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold text-foreground">Water Intelligence</h1>
-            <p className="text-muted-foreground">Smart irrigation monitoring and moisture analytics</p>
+            <p className="text-muted-foreground">Smart irrigation monitoring and moisture analytics from Firestore</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2"><Settings2 className="h-4 w-4" />System Config</Button>
@@ -91,7 +96,7 @@ export default function WaterIntelligence() {
                     <div className="bg-white/20 p-2.5 rounded-xl"><Waves className="h-6 w-6" /></div>
                     <div>
                       <h2 className="text-2xl font-bold">Smart Irrigation System</h2>
-                      <p className="text-primary-foreground/80">Automated based on soil moisture</p>
+                      <p className="text-primary-foreground/80">Automated based on real-time soil moisture</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-6 pt-2">
@@ -99,14 +104,14 @@ export default function WaterIntelligence() {
                       <Switch id="auto-mode" defaultChecked />
                       <Label htmlFor="auto-mode" className="font-bold cursor-pointer">AI Auto-Pilot</Label>
                     </div>
-                    <Button variant="secondary" className="font-bold">Override Now</Button>
+                    <Button variant="secondary" className="font-bold">Manual Override</Button>
                   </div>
                 </div>
                 <div className="flex flex-col items-center justify-center bg-white/5 rounded-2xl p-6 border border-white/10">
                   <div className="relative w-32 h-32 flex items-center justify-center">
                     <div className="absolute inset-0 border-4 border-white/20 rounded-full"></div>
                     <div className="text-center">
-                      <div className="text-3xl font-black">{moistureData.length ? Math.round(moistureData.reduce((acc, f) => acc + f.level, 0) / moistureData.length) : '--'}%</div>
+                      <div className="text-3xl font-black">{fieldsLoading ? '--' : avgMoisture}%</div>
                       <div className="text-[10px] font-bold uppercase tracking-wider opacity-60">Avg Moisture</div>
                     </div>
                   </div>
@@ -124,11 +129,14 @@ export default function WaterIntelligence() {
                 <div className="flex items-center gap-4">
                   <CloudRain className="h-6 w-6 text-blue-500" />
                   <div>
-                    <div className="font-bold">Rain Expected</div>
-                    <div className="text-xs text-muted-foreground">Thursday (85% chance)</div>
+                    <div className="font-bold">Rain Forecasted</div>
+                    <div className="text-xs text-muted-foreground">85% probability within 48h</div>
                   </div>
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Our AI suggests pausing scheduled irrigation for North Hill as natural rainfall will meet saturation needs.
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -158,10 +166,12 @@ export default function WaterIntelligence() {
           <Card className="border-none shadow-sm">
             <CardHeader>
               <CardTitle>Field Moisture</CardTitle>
-              <CardDescription>Real-time sensor data</CardDescription>
+              <CardDescription>Live sensor telemetry</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {moistureData.length > 0 ? moistureData.map((field, idx) => (
+              {fieldsLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>
+              ) : moistureData.length > 0 ? moistureData.map((field, idx) => (
                 <div key={idx} className="space-y-2">
                   <div className="flex justify-between items-end">
                     <h4 className="font-bold text-sm">{field.field}</h4>
@@ -169,14 +179,19 @@ export default function WaterIntelligence() {
                   </div>
                   <Progress value={field.level} className="h-2" />
                 </div>
-              )) : <p className="text-sm text-muted-foreground">No field data available.</p>}
+              )) : (
+                <div className="text-center py-8 bg-muted/20 rounded-xl">
+                  <p className="text-xs text-muted-foreground">No sensor data linked. Head to the Map to add fields.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
 
         <Card className="border-none shadow-sm">
           <CardHeader>
-            <CardTitle>Irrigation Logs</CardTitle>
+            <CardTitle>Irrigation History</CardTitle>
+            <CardDescription>Real-time log from automated valves</CardDescription>
           </CardHeader>
           <CardContent>
             {logsLoading ? (
@@ -186,29 +201,31 @@ export default function WaterIntelligence() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-muted-foreground">
-                      <th className="text-left pb-4 font-medium">Field</th>
-                      <th className="text-left pb-4 font-medium">Type</th>
+                      <th className="text-left pb-4 font-medium">Field Sector</th>
+                      <th className="text-left pb-4 font-medium">Valve Type</th>
                       <th className="text-left pb-4 font-medium">Duration</th>
-                      <th className="text-left pb-4 font-medium">Volume</th>
+                      <th className="text-left pb-4 font-medium">Water Volume</th>
                       <th className="text-right pb-4 font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {logsData?.map((row, idx) => (
-                      <tr key={idx} className="group hover:bg-muted/30 transition-colors">
+                    {logsData?.map((row: any, idx: number) => (
+                      <tr key={row.id || idx} className="group hover:bg-muted/30 transition-colors">
                         <td className="py-4 font-bold">{row.fieldName}</td>
                         <td className="py-4 text-muted-foreground">{row.type}</td>
                         <td className="py-4 text-muted-foreground">{row.duration}</td>
                         <td className="py-4 font-medium">{row.volume}</td>
                         <td className="py-4 text-right">
-                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700`}>
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                            row.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
                             {row.status}
                           </span>
                         </td>
                       </tr>
                     ))}
                     {!logsData?.length && (
-                      <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No irrigation logs recorded.</td></tr>
+                      <tr><td colSpan={5} className="py-12 text-center text-muted-foreground">No automated irrigation events recorded yet.</td></tr>
                     )}
                   </tbody>
                 </table>

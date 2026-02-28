@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StatCards } from "@/components/dashboard/StatCards";
 import { Button } from "@/components/ui/button";
@@ -8,14 +9,30 @@ import {
   Sprout, 
   ArrowRight, 
   Map as MapIcon, 
-  Calendar,
   CloudRain,
-  ThermometerSun
+  ThermometerSun,
+  Loader2
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useFirestore, useCollection } from "@/firebase";
+import { collection, query, orderBy, limit } from "firebase/firestore";
+import { formatDistanceToNow } from "date-fns";
 
 export default function Dashboard() {
+  const firestore = useFirestore();
+  
+  const predictionsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(
+      collection(firestore, "predictions"), 
+      orderBy("createdAt", "desc"), 
+      limit(5)
+    );
+  }, [firestore]);
+  
+  const { data: predictions, loading } = useCollection(predictionsQuery);
+
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -26,7 +43,7 @@ export default function Dashboard() {
               Welcome back, Farmer Joe!
             </h1>
             <p className="text-muted-foreground">
-              Here is what's happening on your farm today.
+              Here is your farm's real-time performance summary.
             </p>
           </div>
           <Link href="/predict">
@@ -46,12 +63,12 @@ export default function Dashboard() {
             <div className="max-w-xl space-y-4">
               <h2 className="text-2xl font-bold">Optimal Planting Season Starts Soon!</h2>
               <p className="text-primary-foreground/90">
-                Based on historical rainfall patterns and current soil temp (22°C), 
+                Based on historical rainfall patterns and current soil sensors, 
                 the best time to plant your **Corn** crop is in the next 10 days.
               </p>
               <Button variant="secondary" className="gap-2 font-bold" asChild>
                 <Link href="/recommendations">
-                  View Full Report
+                  View AI Recommendations
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -59,42 +76,53 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Stats Grid */}
+        {/* Stats Grid - Now Real-Time */}
         <StatCards />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Predictions */}
+          {/* Recent Predictions - Real Data from Firestore */}
           <Card className="lg:col-span-2 shadow-sm border-none">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Recent Predictions</CardTitle>
-                <CardDescription>Your farm's latest yield estimations</CardDescription>
+                <CardDescription>Latest AI yield estimations from your database</CardDescription>
               </div>
-              <Button variant="ghost" className="text-primary font-bold">View All</Button>
+              <Link href="/predict">
+                <Button variant="ghost" className="text-primary font-bold">New Forecast</Button>
+              </Link>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
-                  { field: "North Field", crop: "Corn", yield: "8,450 kg/ha", date: "2 days ago", score: "94%" },
-                  { field: "East Sector", crop: "Soybeans", yield: "3,200 kg/ha", date: "1 week ago", score: "89%" },
-                  { field: "Valley Basin", crop: "Rice", yield: "5,100 kg/ha", date: "2 weeks ago", score: "91%" },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer group">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-white p-2.5 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
-                        <Sprout className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold">{item.field}</h4>
-                        <p className="text-sm text-muted-foreground">{item.crop} • {item.date}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-emerald-600">{item.yield}</div>
-                      <div className="text-xs text-muted-foreground">Confidence: {item.score}</div>
-                    </div>
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                    <p className="text-sm">Fetching predictions...</p>
                   </div>
-                ))}
+                ) : predictions && predictions.length > 0 ? (
+                  predictions.map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer group">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-white p-2.5 rounded-lg shadow-sm group-hover:scale-110 transition-transform">
+                          <Sprout className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold">{item.crop}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {item.createdAt?.toDate ? formatDistanceToNow(item.createdAt.toDate(), { addSuffix: true }) : 'Recently'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-emerald-600">{item.predictedYield?.toLocaleString()} kg/ha</div>
+                        <div className="text-xs text-muted-foreground">Confidence: {Math.round((item.confidence || 0) * 100)}%</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 border-2 border-dashed rounded-2xl">
+                    <p className="text-sm text-muted-foreground">No predictions found. Start by running a yield analysis.</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -147,9 +175,11 @@ export default function Dashboard() {
                   <p className="text-sm text-muted-foreground mb-4">
                     Plan your next crop rotation based on AI yield analysis.
                   </p>
-                  <Button className="w-full" variant="secondary">
-                    Open Planner
-                  </Button>
+                  <Link href="/planner">
+                    <Button className="w-full" variant="secondary">
+                      Open Planner
+                    </Button>
+                  </Link>
                </CardContent>
             </Card>
           </div>
