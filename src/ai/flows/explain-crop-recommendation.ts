@@ -73,9 +73,10 @@ Predicted Yield (Original): {{{predictedYield}}} kg/hectare
 {{#if reasoningContext}}Additional Context: {{{reasoningContext}}}{{/if}}
 
 --- Recommendation ---
-{{#if (eq recommendationType 'fertilizer')}}
+{{#if fertilizerRecommendation}}
 Fertilizer Recommendation: {{{fertilizerRecommendation.quantity}}}
-{{else if (eq recommendationType 'crop_switch')}}
+{{/if}}
+{{#if cropSwitchRecommendation}}
 Crop Switch Recommendation: Switch to {{{cropSwitchRecommendation.alternativeCrop}}}
 {{/if}}
 
