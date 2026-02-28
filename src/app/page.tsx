@@ -13,7 +13,8 @@ import {
   ThermometerSun,
   Loader2,
   RefreshCw,
-  Zap
+  Zap,
+  ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -72,6 +73,12 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Link href="/admin/manage-secret-portal">
+              <Button variant="outline" className="gap-2 h-14 border-primary/20 hover:bg-primary/5">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                Admin Portal
+              </Button>
+            </Link>
             <Link href="/predict">
               <Button size="lg" className="farmer-button gap-2">
                 <Sprout className="h-5 w-5" />

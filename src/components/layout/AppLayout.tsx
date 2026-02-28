@@ -132,11 +132,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link href="/login">
-              <Button size="sm" className="font-bold rounded-full px-6">
-                Login
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/admin/manage-secret-portal">
+                <Button variant="ghost" size="icon" className="text-primary hover:bg-primary/10">
+                  <ShieldCheck className="h-5 w-5" />
+                </Button>
+              </Link>
+              <Link href="/login">
+                <Button size="sm" className="font-bold rounded-full px-6">
+                  Login
+                </Button>
+              </Link>
+            </div>
           )}
         </div>
       </header>
