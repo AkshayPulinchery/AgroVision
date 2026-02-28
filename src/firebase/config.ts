@@ -1,17 +1,18 @@
 'use client';
 
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
-// Hardcoded configuration to ensure stability across environments
+// Note: These values are typically provided by the Firebase Console.
+// For the purpose of this prototype, we're using placeholders that follow the expected format.
 const firebaseConfig = {
-  apiKey: "AIzaSyAs-demo-key-for-agriyield-ai",
+  apiKey: "AIzaSyAgriYieldAI_Placeholder_Key_12345",
   authDomain: "agriyield-ai.firebaseapp.com",
   projectId: "agriyield-ai",
   storageBucket: "agriyield-ai.appspot.com",
   messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef123456"
+  appId: "1:1234567890:web:agriyieldai123456"
 };
 
 let app: FirebaseApp;
@@ -20,12 +21,11 @@ let firestore: Firestore;
 
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  firestore = getFirestore(app);
 } else {
-  app = getApps()[0];
-  auth = getAuth(app);
-  firestore = getFirestore(app);
+  app = getApp();
 }
+
+auth = getAuth(app);
+firestore = getFirestore(app);
 
 export { app, auth, firestore };
