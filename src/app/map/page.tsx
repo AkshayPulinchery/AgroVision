@@ -9,20 +9,27 @@ import {
   Search, 
   Layers, 
   Navigation, 
-  Filter, 
   Maximize2,
   Sprout,
   Activity,
   Droplets,
-  ThermometerSun,
   X,
   ChevronRight,
   Info
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
+import dynamic from "next/dynamic";
+
+// Dynamic import for Leaflet (client-side only)
+const LeafletMap = dynamic(() => import("@/components/map/LeafletMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">
+      <Sprout className="h-12 w-12 text-muted-foreground opacity-20" />
+    </div>
+  ),
+});
 
 type Field = {
   id: string;
@@ -31,7 +38,8 @@ type Field = {
   yield: string;
   moisture: number;
   health: number;
-  pos: { top: string; left: string };
+  lat: number;
+  lng: number;
 };
 
 const MOCK_FIELDS: Field[] = [
@@ -42,7 +50,8 @@ const MOCK_FIELDS: Field[] = [
     yield: "8,400 kg/ha", 
     moisture: 62, 
     health: 94, 
-    pos: { top: "35%", left: "25%" } 
+    lat: -1.2833, 
+    lng: 36.8167 
   },
   { 
     id: "f2", 
@@ -51,7 +60,8 @@ const MOCK_FIELDS: Field[] = [
     yield: "7,100 kg/ha", 
     moisture: 42, 
     health: 82, 
-    pos: { top: "55%", left: "65%" } 
+    lat: -1.2880, 
+    lng: 36.8250 
   },
   { 
     id: "f3", 
@@ -60,7 +70,8 @@ const MOCK_FIELDS: Field[] = [
     yield: "5,800 kg/ha", 
     moisture: 85, 
     health: 78, 
-    pos: { top: "70%", left: "40%" } 
+    lat: -1.2950, 
+    lng: 36.8100 
   },
 ];
 
@@ -68,10 +79,6 @@ export default function MapPage() {
   const [mounted, setMounted] = useState(false);
   const [selectedField, setSelectedField] = useState<Field | null>(null);
   const [activeLayer, setActiveLayer] = useState<'yield' | 'moisture' | 'health'>('yield');
-
-  const mapImage = useMemo(() => 
-    PlaceHolderImages.find(img => img.id === 'satellite-map')?.imageUrl || "https://picsum.photos/seed/map/1600/1200"
-  , []);
 
   useEffect(() => {
     setMounted(true);
@@ -83,19 +90,13 @@ export default function MapPage() {
     <AppLayout>
       <div className="relative h-[calc(100vh-10rem)] md:h-[calc(100vh-8rem)] rounded-3xl overflow-hidden shadow-2xl border bg-muted group">
         
-        {/* Map Background */}
-        <div className="absolute inset-0">
-          <Image 
-            src={mapImage} 
-            alt="Satellite Map" 
-            fill 
-            className="object-cover transition-transform duration-1000 group-hover:scale-105"
-            priority
-            data-ai-hint="satellite farm"
+        {/* Interactive Leaflet Map */}
+        <div className="absolute inset-0 z-0">
+          <LeafletMap 
+            fields={MOCK_FIELDS} 
+            onSelectField={setSelectedField} 
+            selectedField={selectedField}
           />
-          {/* Overlay Grid/Effects */}
-          <div className="absolute inset-0 bg-black/10 backdrop-blur-[0.5px]"></div>
-          <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:40px_40px]"></div>
         </div>
 
         {/* Floating Controls */}
@@ -145,51 +146,17 @@ export default function MapPage() {
           <Button size="icon" className="h-12 w-12 bg-white text-foreground hover:bg-white/90 shadow-xl rounded-2xl border-none">
             <Maximize2 className="h-5 w-5" />
           </Button>
-          <Button size="icon" className="h-12 w-12 bg-primary text-primary-foreground shadow-xl rounded-2xl border-none animate-pulse">
+          <Button 
+            size="icon" 
+            className="h-12 w-12 bg-primary text-primary-foreground shadow-xl rounded-2xl border-none"
+            onClick={() => setSelectedField(MOCK_FIELDS[0])}
+          >
             <Navigation className="h-5 w-5" />
           </Button>
         </div>
 
-        {/* Field Pins */}
-        {MOCK_FIELDS.map((field) => (
-          <div 
-            key={field.id}
-            className="absolute transition-all duration-300"
-            style={{ top: field.pos.top, left: field.pos.left }}
-          >
-            <button 
-              onClick={() => setSelectedField(field)}
-              className="group/pin relative flex items-center justify-center"
-            >
-              <div className={cn(
-                "absolute -top-14 bg-white px-4 py-2 rounded-2xl shadow-2xl min-w-[140px] whitespace-nowrap transition-all transform",
-                selectedField?.id === field.id ? "scale-100 opacity-100 translate-y-0" : "scale-90 opacity-0 translate-y-2 pointer-events-none group-hover/pin:opacity-100 group-hover/pin:scale-100 group-hover/pin:translate-y-0"
-              )}>
-                <div className="flex items-center gap-2 mb-1">
-                  <Sprout className="h-4 w-4 text-primary" />
-                  <span className="font-bold text-sm">{field.name}</span>
-                </div>
-                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  {activeLayer === 'yield' && `Yield: ${field.yield}`}
-                  {activeLayer === 'moisture' && `Moisture: ${field.moisture}%`}
-                  {activeLayer === 'health' && `Health: ${field.health}%`}
-                </div>
-                <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 rounded-sm"></div>
-              </div>
-              
-              <div className="relative">
-                <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping scale-150"></div>
-                <div className={cn(
-                  "w-10 h-10 bg-primary border-[6px] border-white rounded-full shadow-2xl transition-transform hover:scale-110 active:scale-95 z-20",
-                  selectedField?.id === field.id && "scale-125 ring-4 ring-primary/20"
-                )}></div>
-              </div>
-            </button>
-          </div>
-        ))}
-
         {/* Legend */}
-        <Card className="absolute bottom-6 right-6 bg-white/95 backdrop-blur-md shadow-2xl border-none rounded-2xl p-4 hidden md:block">
+        <Card className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md shadow-2xl border-none rounded-2xl p-4 hidden md:block z-10">
           <div className="text-[10px] font-black uppercase mb-3 text-muted-foreground tracking-[0.2em]">Intensity Scale</div>
           <div className="flex flex-col gap-2.5">
             {[
@@ -282,8 +249,8 @@ export default function MapPage() {
           )}
         </div>
 
-        {/* Bottom Mobile Scroll (Hidden on Desktop) */}
-        <div className="md:hidden absolute bottom-6 left-6 right-6 flex gap-3 overflow-x-auto no-scrollbar py-2">
+        {/* Bottom Mobile Scroll */}
+        <div className="md:hidden absolute bottom-6 left-6 right-6 flex gap-3 overflow-x-auto no-scrollbar py-2 z-10">
           {MOCK_FIELDS.map((field) => (
             <Button 
               key={field.id}
