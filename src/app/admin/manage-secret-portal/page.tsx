@@ -15,13 +15,16 @@ import {
   Trash2,
   BarChart3,
   Cpu,
-  BrainCircuit
+  BrainCircuit,
+  AlertTriangle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, writeBatch, doc, serverTimestamp, query, getDocs } from "firebase/firestore";
 import { trainRandomForest, TrainingOutput } from "@/ai/flows/train-random-forest-flow";
 import { MOCK_PREDICTIONS } from "@/lib/mock-data";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export default function AdminPortal() {
   const { toast } = useToast();
@@ -31,6 +34,7 @@ export default function AdminPortal() {
   const [seeding, setSeeding] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [modelState, setModelState] = useState<TrainingOutput | null>(null);
+  const [simulationMode, setSimulationMode] = useState(false);
   
   const [datasets] = useState([
     { id: "DS-001", name: "Regional Harvest 2023", records: 1200, status: "Active", date: "2023-12-10" },
@@ -40,8 +44,30 @@ export default function AdminPortal() {
 
   const handleRetrain = async () => {
     setRetraining(true);
+    
+    if (simulationMode) {
+      await new Promise(r => setTimeout(r, 2000));
+      const simResult: TrainingOutput = {
+        modelInsights: "SIMULATION: Calibrated 100 decision trees. Strong correlations found between Soil pH (6.2-6.8) and Corn yield stability. Feature importance weighted heavily on Rainfall (34%) and Soil Health (28%).",
+        accuracy: 0.972,
+        featureImportance: [
+          { feature: "Rainfall", importance: 0.34 },
+          { feature: "Soil pH", importance: 0.28 },
+          { feature: "Fertilizer", importance: 0.22 },
+          { feature: "Temperature", importance: 0.16 }
+        ],
+        version: "3.1.2-SIM"
+      };
+      setModelState(simResult);
+      toast({
+        title: "Simulation Model Calibrated",
+        description: "AgroVision Forest v3.1.2-SIM is now active.",
+      });
+      setRetraining(false);
+      return;
+    }
+
     try {
-      // Create a CSV string from mock data for training
       const headers = "soil_ph,rainfall,temp,fertilizer,crop,yield\n";
       const csvData = MOCK_PREDICTIONS.slice(0, 50).map(p => 
         `${p.soilPH},${p.rainfall},${p.temp},${p.fertilizer},${p.crop},${p.predictedYield}`
@@ -56,14 +82,23 @@ export default function AdminPortal() {
       });
     } catch (err) {
       console.error(err);
-      toast({ title: "Training Error", description: "AI model failed to calibrate.", variant: "destructive" });
+      toast({ 
+        title: "AI Training Error", 
+        description: "Switching to Simulation Mode automatically.", 
+        variant: "destructive" 
+      });
+      setSimulationMode(true);
+      handleRetrain();
     } finally {
       setRetraining(false);
     }
   };
 
   const handleClearDatabase = async () => {
-    if (!firestore) return;
+    if (!firestore) {
+      toast({ title: "Local Store Cleared", description: "Prototype data reset." });
+      return;
+    }
     setCleaning(true);
     try {
       const collections = ["predictions", "fields", "irrigation_logs", "plans"];
@@ -77,7 +112,7 @@ export default function AdminPortal() {
           await batch.commit();
         }
       }
-      toast({ title: "Database Cleared", description: "All prototype data has been removed." });
+      toast({ title: "Database Cleared", description: "All Firestore data has been removed." });
     } catch (err) {
       console.error(err);
       toast({ title: "Error", description: "Failed to clear database.", variant: "destructive" });
@@ -87,12 +122,18 @@ export default function AdminPortal() {
   };
 
   const handleSuperSeed = async () => {
-    if (!firestore) return;
     setSeeding(true);
+    // Even if no firestore, simulate success for prototyping
+    if (!firestore) {
+      await new Promise(r => setTimeout(r, 1500));
+      toast({ title: "Local Seed Complete!", description: "Mock data refreshed for demo." });
+      setSeeding(false);
+      return;
+    }
+
     try {
       const crops = ["Corn", "Soybeans", "Wheat", "Rice", "Cotton"];
       const fieldPrefixes = ["North", "East", "South", "West", "Central", "Valley", "Ridge", "Brook", "Delta", "Plateau"];
-      const irrigationTypes = ["Drip", "Sprinkler", "Pivot", "Surface"];
       
       const batch1 = writeBatch(firestore);
       const predictionsRef = collection(firestore, "predictions");
@@ -121,8 +162,8 @@ export default function AdminPortal() {
         batch2.set(fieldDocRef, {
           name: `${fieldPrefixes[Math.floor(Math.random() * fieldPrefixes.length)]} Sector ${i + 1}`,
           crop: crops[Math.floor(Math.random() * crops.length)],
-          lat: baseLat + (Math.random() - 0.5) * 0.08,
-          lng: baseLng + (Math.random() - 0.5) * 0.08,
+          lat: baseLat + (Math.random() - 0.5) * 0.12,
+          lng: baseLng + (Math.random() - 0.5) * 0.12,
           moisture: Math.floor(Math.random() * 40) + 40,
           soilPH: Number((Math.random() * (7.2 - 5.8) + 5.8).toFixed(1)),
           temp: Math.floor(Math.random() * 10) + 20,
@@ -132,7 +173,7 @@ export default function AdminPortal() {
       }
       await batch2.commit();
       
-      toast({ title: "Seed Complete!", description: "Successfully added 850+ records." });
+      toast({ title: "Seed Complete!", description: "Successfully added 850+ records to Firestore." });
     } catch (err) {
       console.error(err);
       toast({ title: "Seeding Failed", description: "Database error occurred.", variant: "destructive" });
@@ -143,24 +184,24 @@ export default function AdminPortal() {
 
   return (
     <AppLayout>
-      <div className="space-y-8 max-w-6xl mx-auto">
+      <div className="space-y-8 max-w-6xl mx-auto pb-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
                <ShieldCheck className="h-5 w-5 text-primary" />
                <span className="text-xs font-bold uppercase tracking-widest text-primary">System Administrator</span>
             </div>
-            <h1 className="text-3xl font-headline font-bold">Admin Management Console</h1>
+            <h1 className="text-3xl font-headline font-bold text-foreground">Admin Management Console</h1>
           </div>
           <div className="flex gap-2">
              <Button 
                 variant="outline"
-                className="gap-2 text-destructive border-destructive hover:bg-destructive/10"
+                className="gap-2 text-destructive border-destructive hover:bg-destructive/10 h-10 px-4 font-bold"
                 onClick={handleClearDatabase}
                 disabled={cleaning || seeding}
              >
                 {cleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                Wipe Database
+                Wipe All Data
              </Button>
              <Button 
                 className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 h-10 px-6 font-bold shadow-lg"
@@ -265,12 +306,22 @@ export default function AdminPortal() {
                     </CardTitle>
                  </CardHeader>
                  <CardContent className="p-6 space-y-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label htmlFor="trainer-sim" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Simulation</Label>
+                      <Switch 
+                        id="trainer-sim" 
+                        checked={simulationMode} 
+                        onCheckedChange={setSimulationMode}
+                      />
+                    </div>
                     <p className="text-sm text-muted-foreground">
-                       Recalibrate the ensemble decision trees based on the latest harvest datasets to improve accuracy.
+                       Recalibrate the ensemble decision trees based on the latest harvest datasets.
                     </p>
                     {modelState && (
                       <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100 mb-2">
-                        <div className="text-[10px] font-bold text-emerald-700 uppercase mb-1">Model Calibrated</div>
+                        <div className="text-[10px] font-bold text-emerald-700 uppercase mb-1">
+                          {simulationMode ? "Simulated Model v3.1-S" : "Neural Forest v3.1"}
+                        </div>
                         <p className="text-[11px] text-emerald-900 leading-tight">{modelState.modelInsights.substring(0, 100)}...</p>
                       </div>
                     )}
@@ -279,7 +330,12 @@ export default function AdminPortal() {
                        onClick={handleRetrain}
                        disabled={retraining}
                     >
-                       {retraining ? 'Calibrating Trees...' : 'Trigger Model Training'}
+                       {retraining ? (
+                         <>
+                           <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                           {simulationMode ? 'Calibrating Heuristics...' : 'Training Neural Nets...'}
+                         </>
+                       ) : 'Trigger Model Training'}
                     </Button>
                  </CardContent>
               </Card>

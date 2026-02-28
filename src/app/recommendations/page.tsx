@@ -12,16 +12,35 @@ import {
   ArrowRight,
   Info,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  BrainCircuit,
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
 import { explainCropRecommendation } from "@/ai/flows/explain-crop-recommendation";
+import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export default function RecommendationsPage() {
+  const { toast } = useToast();
   const [explaining, setExplaining] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
+  const [simulationMode, setSimulationMode] = useState(false);
 
   const handleGetExplanation = async (type: 'fertilizer' | 'crop_switch') => {
     setExplaining(true);
+    
+    if (simulationMode) {
+      await new Promise(r => setTimeout(r, 1000));
+      const simExplanation = type === 'fertilizer' 
+        ? "SIMULATION: AI analysis of your soil telemetry indicates a specific depletion of Nitrogen in the upper 15cm of soil. This is likely due to the higher-than-average precipitation last month. The recommended 120kg/ha Nitrogen mix is calculated to restore the nutrient balance for optimal Wheat grain fill."
+        : "SIMULATION: AI market forecasting and regional soil analysis suggests switching to Soybeans. Historical data for the Valley Basin shows that during 'La Niña' years, late-season rainfall patterns favor legumes. Additionally, market futures for Soybeans are currently trending 8% higher than Wheat, reducing your financial risk.";
+      setExplanation(simExplanation);
+      setExplaining(false);
+      return;
+    }
+
     try {
       const result = await explainCropRecommendation({
         recommendationType: type,
@@ -37,6 +56,13 @@ export default function RecommendationsPage() {
       setExplanation(result.explanation);
     } catch (err) {
       console.error(err);
+      toast({
+        title: "AI Connection Issue",
+        description: "Falling back to Simulation Mode for this explanation.",
+        variant: "destructive"
+      });
+      setSimulationMode(true);
+      handleGetExplanation(type);
     } finally {
       setExplaining(false);
     }
@@ -44,10 +70,23 @@ export default function RecommendationsPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-3xl font-headline font-bold text-primary">Smart Recommendations</h1>
-          <p className="text-muted-foreground">Tailored advice for your farm based on soil, weather, and market trends.</p>
+      <div className="max-w-5xl mx-auto space-y-8 pb-12">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-headline font-bold text-primary">Smart Recommendations</h1>
+            <p className="text-muted-foreground">Tailored advice for your farm based on soil, weather, and market trends.</p>
+          </div>
+          <div className="flex items-center space-x-2 bg-muted/50 px-3 py-1.5 rounded-full border">
+            <Switch 
+              id="rec-sim-mode" 
+              checked={simulationMode} 
+              onCheckedChange={setSimulationMode}
+            />
+            <Label htmlFor="rec-sim-mode" className="text-[10px] font-bold uppercase cursor-pointer flex items-center gap-1.5">
+              {simulationMode ? <AlertTriangle className="h-3 w-3 text-amber-500" /> : <BrainCircuit className="h-3 w-3 text-primary" />}
+              {simulationMode ? "Simulation Mode" : "Cloud AI Mode"}
+            </Label>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -85,11 +124,11 @@ export default function RecommendationsPage() {
 
               <Button 
                 variant="outline" 
-                className="w-full h-12 gap-2"
+                className="w-full h-12 gap-2 font-bold"
                 onClick={() => handleGetExplanation('fertilizer')}
                 disabled={explaining}
               >
-                <MessageSquare className="h-4 w-4" />
+                {explaining ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
                 Ask AI Why
               </Button>
             </CardContent>
@@ -129,11 +168,11 @@ export default function RecommendationsPage() {
 
               <Button 
                 variant="outline" 
-                className="w-full h-12 gap-2"
+                className="w-full h-12 gap-2 font-bold"
                 onClick={() => handleGetExplanation('crop_switch')}
                 disabled={explaining}
               >
-                <MessageSquare className="h-4 w-4" />
+                {explaining ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
                 Ask AI Why
               </Button>
             </CardContent>
@@ -143,20 +182,25 @@ export default function RecommendationsPage() {
         {/* AI Explanation Area */}
         {explanation && (
           <Card className="border-none shadow-2xl bg-white animate-in zoom-in-95 duration-300">
-            <CardHeader className="border-b">
+            <CardHeader className="border-b bg-primary/5">
               <div className="flex items-center gap-3">
                  <div className="bg-primary p-2 rounded-lg">
-                    <MessageSquare className="h-5 w-5 text-primary-foreground" />
+                    <BrainCircuit className="h-5 w-5 text-primary-foreground" />
                  </div>
-                 <CardTitle>AI Agronomist's Reasoning</CardTitle>
+                 <div>
+                   <CardTitle className="text-lg">AI Agronomist's Reasoning</CardTitle>
+                   <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
+                     {simulationMode ? "Simulated Pattern Matching" : "Live Neural Analysis"}
+                   </p>
+                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-8">
-              <div className="prose prose-emerald max-w-none text-lg text-foreground leading-relaxed whitespace-pre-wrap">
+              <div className="prose prose-emerald max-w-none text-lg text-foreground leading-relaxed whitespace-pre-wrap font-medium">
                 {explanation}
               </div>
               <div className="mt-8 flex justify-end">
-                 <Button onClick={() => setExplanation(null)} variant="ghost">Dismiss</Button>
+                 <Button onClick={() => setExplanation(null)} variant="ghost" className="font-bold">Dismiss Insight</Button>
               </div>
             </CardContent>
           </Card>
@@ -171,7 +215,7 @@ export default function RecommendationsPage() {
               <div>
                  <h3 className="font-bold text-lg text-destructive">Climate Risk Alert</h3>
                  <p className="text-sm text-muted-foreground">
-                    A late-season frost is predicted for the Valley Basin area between April 12-15. 
+                    A late-season frost is predicted for the Valley Basin area. 
                     Ensure your Soybeans are properly covered or consider delaying harvest.
                  </p>
                  <Button variant="link" className="px-0 text-destructive font-bold mt-2">
