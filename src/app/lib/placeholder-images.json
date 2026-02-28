@@ -1,0 +1,16 @@
+{
+  "placeholderImages": [
+    {
+      "id": "farm-hero",
+      "description": "Aerial view of lush green farm fields",
+      "imageUrl": "https://picsum.photos/seed/agri1/1200/600",
+      "imageHint": "lush farm"
+    },
+    {
+      "id": "soil-test",
+      "description": "Farmer inspecting soil quality",
+      "imageUrl": "https://picsum.photos/seed/agri2/600/400",
+      "imageHint": "soil inspection"
+    }
+  ]
+}
