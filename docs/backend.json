@@ -1,0 +1,82 @@
+
+{
+  "entities": {
+    "FarmField": {
+      "title": "Farm Field",
+      "description": "A specific plot of land on the farm.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "crop": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "moisture": { "type": "number" },
+        "health": { "type": "number" }
+      },
+      "required": ["name", "crop", "lat", "lng"]
+    },
+    "YieldPrediction": {
+      "title": "Yield Prediction",
+      "description": "An AI prediction for crop yield.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "crop": { "type": "string" },
+        "soilPH": { "type": "number" },
+        "rainfall": { "type": "number" },
+        "temp": { "type": "number" },
+        "fertilizer": { "type": "number" },
+        "predictedYield": { "type": "number" },
+        "confidence": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "SeasonPlan": {
+      "title": "Season Plan",
+      "description": "A planned planting cycle.",
+      "type": "object",
+      "properties": {
+        "crop": { "type": "string" },
+        "fieldName": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Upcoming", "Draft", "Active"] },
+        "expectedYield": { "type": "string" }
+      }
+    },
+    "IrrigationLog": {
+      "title": "Irrigation Log",
+      "description": "Record of a watering event.",
+      "type": "object",
+      "properties": {
+        "fieldName": { "type": "string" },
+        "type": { "type": "string" },
+        "duration": { "type": "string" },
+        "volume": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/fields/{fieldId}": {
+      "schema": "FarmField",
+      "description": "Farm fields information."
+    },
+    "/predictions/{predictionId}": {
+      "schema": "YieldPrediction",
+      "description": "User yield predictions."
+    },
+    "/plans/{planId}": {
+      "schema": "SeasonPlan",
+      "description": "Planned farming seasons."
+    },
+    "/irrigation_logs/{logId}": {
+      "schema": "IrrigationLog",
+      "description": "History of watering events."
+    }
+  }
+}

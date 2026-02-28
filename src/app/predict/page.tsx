@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +20,20 @@ import {
   Thermometer
 } from "lucide-react";
 import { predictYield, PredictionOutput } from "@/lib/ml-model";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { useFirestore, useUser } from "@/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function PredictPage() {
+  const { toast } = useToast();
+  const { user } = useUser();
+  const firestore = useFirestore();
+  
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<PredictionOutput | null>(null);
   
   const [formData, setFormData] = useState({
@@ -36,11 +46,49 @@ export default function PredictPage() {
 
   const handlePredict = async () => {
     setLoading(true);
-    // Simulate API delay
     await new Promise(r => setTimeout(r, 1500));
     const prediction = predictYield(formData);
     setResult(prediction);
     setLoading(false);
+  };
+
+  const handleSave = () => {
+    if (!result || !firestore || !user) {
+      toast({
+        title: "Error",
+        description: "Must be signed in and have a prediction to save.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSaving(true);
+    const predictionRef = collection(firestore, "predictions");
+    const data = {
+      userId: user.uid,
+      ...formData,
+      predictedYield: result.yield,
+      confidence: result.confidence,
+      createdAt: serverTimestamp()
+    };
+
+    addDoc(predictionRef, data)
+      .then(() => {
+        toast({
+          title: "Success",
+          description: "Prediction saved to your farm records.",
+        });
+        setSaving(false);
+      })
+      .catch(async (serverError) => {
+        setSaving(false);
+        const permissionError = new FirestorePermissionError({
+          path: 'predictions',
+          operation: 'create',
+          requestResourceData: data,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   return (
@@ -169,7 +217,7 @@ export default function PredictPage() {
               <div className="h-full flex flex-col items-center justify-center p-8 bg-muted/10 rounded-2xl">
                 <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
                 <h3 className="font-bold text-lg">Crunching Data...</h3>
-                <p className="text-sm text-muted-foreground">Our Random Forest model is analyzing 400+ seasons of data.</p>
+                <p className="text-sm text-muted-foreground">Our model is analyzing your field data.</p>
               </div>
             )}
 
@@ -217,7 +265,12 @@ export default function PredictPage() {
                   <Button variant="outline" className="flex-1 h-12" onClick={() => setResult(null)}>
                     Reset
                   </Button>
-                  <Button className="flex-1 h-12 bg-accent text-accent-foreground hover:bg-accent/90 font-bold">
+                  <Button 
+                    className="flex-1 h-12 bg-accent text-accent-foreground hover:bg-accent/90 font-bold"
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                     Save Record
                   </Button>
                 </div>

@@ -15,11 +15,14 @@ import {
   Droplets,
   X,
   ChevronRight,
-  Info
+  Info,
+  Loader2
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
+import { useFirestore, useCollection } from "@/firebase";
+import { collection, query, limit } from "firebase/firestore";
 
 // Dynamic import for Leaflet (client-side only)
 const LeafletMap = dynamic(() => import("@/components/map/LeafletMap"), {
@@ -42,43 +45,26 @@ type Field = {
   lng: number;
 };
 
-const MOCK_FIELDS: Field[] = [
-  { 
-    id: "f1", 
-    name: "North Hill", 
-    crop: "Corn", 
-    yield: "8,400 kg/ha", 
-    moisture: 62, 
-    health: 94, 
-    lat: -1.2833, 
-    lng: 36.8167 
-  },
-  { 
-    id: "f2", 
-    name: "East Brook", 
-    crop: "Soybeans", 
-    yield: "7,100 kg/ha", 
-    moisture: 42, 
-    health: 82, 
-    lat: -1.2880, 
-    lng: 36.8250 
-  },
-  { 
-    id: "f3", 
-    name: "Valley Basin", 
-    crop: "Wheat", 
-    yield: "5,800 kg/ha", 
-    moisture: 85, 
-    health: 78, 
-    lat: -1.2950, 
-    lng: 36.8100 
-  },
-];
-
 export default function MapPage() {
   const [mounted, setMounted] = useState(false);
   const [selectedField, setSelectedField] = useState<Field | null>(null);
   const [activeLayer, setActiveLayer] = useState<'yield' | 'moisture' | 'health'>('yield');
+  
+  const firestore = useFirestore();
+  const fieldsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "fields"), limit(10));
+  }, [firestore]);
+  
+  const { data: fieldsData, loading: fieldsLoading } = useCollection(fieldsQuery);
+
+  const fields = useMemo(() => {
+    if (!fieldsData) return [];
+    return fieldsData.map(doc => ({
+      id: doc.id,
+      ...doc
+    })) as Field[];
+  }, [fieldsData]);
 
   useEffect(() => {
     setMounted(true);
@@ -92,11 +78,17 @@ export default function MapPage() {
         
         {/* Interactive Leaflet Map */}
         <div className="absolute inset-0 z-0">
-          <LeafletMap 
-            fields={MOCK_FIELDS} 
-            onSelectField={setSelectedField} 
-            selectedField={selectedField}
-          />
+          {!fieldsLoading && fields.length > 0 ? (
+            <LeafletMap 
+              fields={fields} 
+              onSelectField={setSelectedField} 
+              selectedField={selectedField}
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
+              {fieldsLoading ? <Loader2 className="h-8 w-8 animate-spin text-primary" /> : <p className="text-muted-foreground">No fields found in database.</p>}
+            </div>
+          )}
         </div>
 
         {/* Floating Controls */}
@@ -146,31 +138,16 @@ export default function MapPage() {
           <Button size="icon" className="h-12 w-12 bg-white text-foreground hover:bg-white/90 shadow-xl rounded-2xl border-none">
             <Maximize2 className="h-5 w-5" />
           </Button>
-          <Button 
-            size="icon" 
-            className="h-12 w-12 bg-primary text-primary-foreground shadow-xl rounded-2xl border-none"
-            onClick={() => setSelectedField(MOCK_FIELDS[0])}
-          >
-            <Navigation className="h-5 w-5" />
-          </Button>
+          {fields.length > 0 && (
+            <Button 
+              size="icon" 
+              className="h-12 w-12 bg-primary text-primary-foreground shadow-xl rounded-2xl border-none"
+              onClick={() => setSelectedField(fields[0])}
+            >
+              <Navigation className="h-5 w-5" />
+            </Button>
+          )}
         </div>
-
-        {/* Legend */}
-        <Card className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md shadow-2xl border-none rounded-2xl p-4 hidden md:block z-10">
-          <div className="text-[10px] font-black uppercase mb-3 text-muted-foreground tracking-[0.2em]">Intensity Scale</div>
-          <div className="flex flex-col gap-2.5">
-            {[
-              { color: 'bg-red-500', label: 'Critical / Low' },
-              { color: 'bg-yellow-500', label: 'Alert / Moderate' },
-              { color: 'bg-emerald-500', label: 'Optimal / High' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className={cn("w-3 h-3 rounded-full shadow-sm", item.color)}></div>
-                <span className="text-[11px] font-bold text-muted-foreground">{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
 
         {/* Selected Field Sidebar */}
         <div className={cn(
@@ -216,16 +193,6 @@ export default function MapPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-sm font-bold">
-                    <span>Soil Temperature</span>
-                    <span className="text-primary">24.2°C</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div className="w-3/4 h-full bg-primary"></div>
-                  </div>
-                </div>
-
                 <Card className="bg-primary text-primary-foreground border-none shadow-lg mt-4">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
@@ -235,7 +202,7 @@ export default function MapPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-xs font-medium leading-relaxed opacity-90">
-                      Optimal harvest window for this sector is in 12-14 days. Nitrogen levels are peaking.
+                      Based on current sensor data, this sector is in optimal range for the current growth stage.
                     </p>
                   </CardContent>
                 </Card>
@@ -247,22 +214,6 @@ export default function MapPage() {
               </Button>
             </div>
           )}
-        </div>
-
-        {/* Bottom Mobile Scroll */}
-        <div className="md:hidden absolute bottom-6 left-6 right-6 flex gap-3 overflow-x-auto no-scrollbar py-2 z-10">
-          {MOCK_FIELDS.map((field) => (
-            <Button 
-              key={field.id}
-              onClick={() => setSelectedField(field)}
-              className={cn(
-                "h-14 px-6 rounded-2xl whitespace-nowrap shadow-xl border-none transition-all",
-                selectedField?.id === field.id ? "bg-primary text-primary-foreground scale-105" : "bg-white/95 text-foreground"
-              )}
-            >
-              {field.name}
-            </Button>
-          ))}
         </div>
       </div>
     </AppLayout>
