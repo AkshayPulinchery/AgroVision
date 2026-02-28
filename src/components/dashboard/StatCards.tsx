@@ -1,9 +1,8 @@
-
 "use client";
 
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sprout, TrendingUp, Thermometer, Droplets, Loader2, FlaskConical } from "lucide-react";
+import { TrendingUp, Thermometer, Droplets, Loader2, FlaskConical, BarChart3 } from "lucide-react";
 import { useFirestore, useCollection } from "@/firebase";
 import { collection } from "firebase/firestore";
 
@@ -42,33 +41,33 @@ export function StatCards() {
 
     return [
       {
-        title: "Soil PH (Live)",
+        title: "Total Yield Analyzed",
+        value: `${(predictions?.length || 0).toLocaleString()}`,
+        trend: "Across all seasons",
+        icon: BarChart3,
+        color: "text-primary",
+        bg: "bg-primary/10",
+      },
+      {
+        title: "Soil PH (Avg)",
         value: `${avgPH} pH`,
-        trend: "Optimal range 6.5",
+        trend: "Regional healthy range",
         icon: FlaskConical,
         color: "text-purple-600",
         bg: "bg-purple-50",
       },
       {
-        title: "Soil Temp (Live)",
-        value: `${avgTemp}°C`,
-        trend: avgTemp > 20 ? "Active growth" : "Stagnant",
-        icon: Thermometer,
-        color: "text-orange-600",
-        bg: "bg-orange-50",
-      },
-      {
-        title: "Soil Moisture",
+        title: "Avg. Moisture",
         value: `${avgMoisture}%`,
-        trend: avgMoisture > 50 ? "Healthy levels" : "Needs irrigation",
+        trend: avgMoisture > 50 ? "Satisfactory" : "Low Moisture",
         icon: Droplets,
         color: "text-blue-600",
         bg: "bg-blue-50",
       },
       {
-        title: "Avg. Prediction",
+        title: "Avg. Predicted Yield",
         value: avgYield > 0 ? `${avgYield.toLocaleString()} kg/ha` : "0 kg/ha",
-        trend: `${predictions?.length || 0} Records`,
+        trend: "Estimated current harvest",
         icon: TrendingUp,
         color: "text-emerald-600",
         bg: "bg-emerald-50",

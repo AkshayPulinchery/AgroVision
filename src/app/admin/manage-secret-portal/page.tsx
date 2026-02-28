@@ -4,7 +4,6 @@ import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   Database, 
@@ -17,15 +16,21 @@ import {
   BarChart3,
   CheckCircle2,
   Trash2,
-  Cpu
+  Cpu,
+  Zap,
+  Loader2
 } from "lucide-react";
-import { generateSyntheticCropData } from "@/ai/flows/generate-synthetic-crop-data";
 import { useToast } from "@/hooks/use-toast";
+import { useFirestore, useUser } from "@/firebase";
+import { collection, addDoc, serverTimestamp, writeBatch, doc } from "firebase/firestore";
 
 export default function AdminPortal() {
   const { toast } = useToast();
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [retraining, setRetraining] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  
   const [datasets, setDatasets] = useState([
     { id: "DS-001", name: "Regional Harvest 2023", records: 1200, status: "Active", date: "2023-12-10" },
     { id: "DS-002", name: "Soil Health Aggregates", records: 450, status: "Active", date: "2024-01-05" },
@@ -42,32 +47,65 @@ export default function AdminPortal() {
     });
   };
 
-  const handleGenerateSynthetic = async () => {
-    setGenerating(true);
+  const handleSuperSeed = async () => {
+    if (!firestore || !user) {
+      toast({ title: "Auth Required", description: "Sign in to seed data.", variant: "destructive" });
+      return;
+    }
+
+    setSeeding(true);
     try {
-      const mockCsv = "soil_ph,rainfall,temp,fertilizer,crop,yield\n6.5,1000,24,150,Corn,8500";
-      const result = await generateSyntheticCropData({
-        existingCropData: mockCsv,
-        numRecords: 400
-      });
+      const crops = ["Corn", "Soybeans", "Wheat", "Rice", "Cotton"];
+      const fieldNames = ["North Hill", "East Brook", "Valley Basin", "South Plateau", "River Delta"];
       
-      const newDs = {
-        id: `DS-${Math.floor(Math.random() * 1000)}`,
-        name: "AI Generated Seasonal Data",
-        records: 400,
-        status: "Draft",
-        date: new Date().toISOString().split('T')[0]
-      };
+      // Seed 500 Predictions in batches (Firestore batch limit is 500)
+      const batch = writeBatch(firestore);
+      const predictionsRef = collection(firestore, "predictions");
       
-      setDatasets([newDs, ...datasets]);
+      for (let i = 0; i < 500; i++) {
+        const crop = crops[Math.floor(Math.random() * crops.length)];
+        const docRef = doc(predictionsRef);
+        batch.set(docRef, {
+          userId: user.uid,
+          crop,
+          soilPH: Number((Math.random() * (7.5 - 5.5) + 5.5).toFixed(1)),
+          rainfall: Math.floor(Math.random() * 800) + 600,
+          temp: Math.floor(Math.random() * 15) + 15,
+          fertilizer: Math.floor(Math.random() * 100) + 100,
+          predictedYield: Math.floor(Math.random() * 5000) + 3000,
+          confidence: 0.85 + Math.random() * 0.1,
+          createdAt: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 365) // Random date in last year
+        });
+      }
+
+      // Seed 20 Fields
+      const fieldsRef = collection(firestore, "fields");
+      for (let i = 0; i < 20; i++) {
+        const fieldDocRef = doc(fieldsRef);
+        batch.set(fieldDocRef, {
+          name: `${fieldNames[i % fieldNames.length]} Sector ${Math.floor(i / 5) + 1}`,
+          crop: crops[Math.floor(Math.random() * crops.length)],
+          lat: 34.0522 + (Math.random() - 0.5) * 0.1,
+          lng: -118.2437 + (Math.random() - 0.5) * 0.1,
+          moisture: Math.floor(Math.random() * 40) + 40,
+          soilPH: Number((Math.random() * (7.2 - 5.8) + 5.8).toFixed(1)),
+          temp: Math.floor(Math.random() * 10) + 20,
+          health: Math.floor(Math.random() * 20) + 75,
+          lastUpdated: serverTimestamp()
+        });
+      }
+
+      await batch.commit();
+      
       toast({
-        title: "Synthetic Data Generated",
-        description: "Added 400 records to a new dataset draft.",
+        title: "Database Seeded!",
+        description: "Added 500 predictions and 20 field sensors for the event.",
       });
     } catch (err) {
       console.error(err);
+      toast({ title: "Seeding Failed", description: "Check console for details.", variant: "destructive" });
     } finally {
-      setGenerating(false);
+      setSeeding(false);
     }
   };
 
@@ -83,13 +121,13 @@ export default function AdminPortal() {
             <h1 className="text-3xl font-headline font-bold">Admin Management Console</h1>
           </div>
           <div className="flex gap-2">
-             <Button variant="outline" className="gap-2">
-                <FileSpreadsheet className="h-4 w-4" />
-                Export Analytics
-             </Button>
-             <Button className="gap-2 farmer-button h-10 px-4">
-                <Plus className="h-4 w-4" />
-                Upload Dataset
+             <Button 
+                className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 h-10 px-4 font-bold"
+                onClick={handleSuperSeed}
+                disabled={seeding}
+             >
+                {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                Super Seed 500+ Records
              </Button>
           </div>
         </div>
@@ -204,28 +242,6 @@ export default function AdminPortal() {
                        disabled={retraining}
                     >
                        {retraining ? 'Training...' : 'Trigger Retraining'}
-                    </Button>
-                 </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-md">
-                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                       <Upload className="h-5 w-5 text-primary" />
-                       Synthetic Engine
-                    </CardTitle>
-                 </CardHeader>
-                 <CardContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                       Generate realistic seasonal data using AI to balance minority crop representations in your models.
-                    </p>
-                    <Button 
-                       variant="outline" 
-                       className="w-full h-12 font-bold border-primary text-primary hover:bg-primary/5"
-                       onClick={handleGenerateSynthetic}
-                       disabled={generating}
-                    >
-                       {generating ? 'Generating 400 Records...' : 'Generate 400 Seasons'}
                     </Button>
                  </CardContent>
               </Card>
