@@ -3,7 +3,7 @@
   "entities": {
     "FarmField": {
       "title": "Farm Field",
-      "description": "A specific plot of land on the farm.",
+      "description": "A specific plot of land on the farm with live sensor telemetry.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
@@ -11,7 +11,10 @@
         "lat": { "type": "number" },
         "lng": { "type": "number" },
         "moisture": { "type": "number" },
-        "health": { "type": "number" }
+        "soilPH": { "type": "number" },
+        "temp": { "type": "number" },
+        "health": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "crop", "lat", "lng"]
     },
@@ -64,7 +67,7 @@
   "firestore": {
     "/fields/{fieldId}": {
       "schema": "FarmField",
-      "description": "Farm fields information."
+      "description": "Farm fields information including live sensor data."
     },
     "/predictions/{predictionId}": {
       "schema": "YieldPrediction",

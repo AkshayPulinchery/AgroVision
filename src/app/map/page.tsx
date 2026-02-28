@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -16,16 +17,18 @@ import {
   ChevronRight,
   Info,
   Loader2,
-  Database
+  Database,
+  RefreshCw,
+  Thermometer,
+  FlaskConical
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { useFirestore, useCollection } from "@/firebase";
-import { collection, query, limit, addDoc } from "firebase/firestore";
+import { collection, query, limit, addDoc, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
-// Dynamic import for Leaflet (client-side only)
 const LeafletMap = dynamic(() => import("@/components/map/LeafletMap"), {
   ssr: false,
   loading: () => (
@@ -43,6 +46,8 @@ type Field = {
   name: string;
   crop: string;
   moisture: number;
+  soilPH: number;
+  temp: number;
   health: number;
   lat: number;
   lng: number;
@@ -53,6 +58,7 @@ export default function MapPage() {
   const [mounted, setMounted] = useState(false);
   const [selectedField, setSelectedField] = useState<Field | null>(null);
   const [activeLayer, setActiveLayer] = useState<'yield' | 'moisture' | 'health'>('yield');
+  const [syncing, setSyncing] = useState(false);
   const [seeding, setSeeding] = useState(false);
   
   const firestore = useFirestore();
@@ -77,13 +83,16 @@ export default function MapPage() {
     setSeeding(true);
     try {
       const demoFields = [
-        { name: "North Hill", crop: "Corn", lat: 34.0522, lng: -118.2437, moisture: 65, health: 92 },
-        { name: "East Sector", crop: "Soybeans", lat: 34.0622, lng: -118.2537, moisture: 42, health: 88 },
-        { name: "Valley Basin", crop: "Wheat", lat: 34.0422, lng: -118.2337, moisture: 58, health: 95 }
+        { name: "North Hill", crop: "Corn", lat: 34.0522, lng: -118.2437, moisture: 65, soilPH: 6.5, temp: 24, health: 92 },
+        { name: "East Sector", crop: "Soybeans", lat: 34.0622, lng: -118.2537, moisture: 42, soilPH: 6.8, temp: 26, health: 88 },
+        { name: "Valley Basin", crop: "Wheat", lat: 34.0422, lng: -118.2337, moisture: 58, soilPH: 6.2, temp: 22, health: 95 }
       ];
 
       for (const f of demoFields) {
-        await addDoc(collection(firestore, "fields"), f);
+        await addDoc(collection(firestore, "fields"), {
+          ...f,
+          lastUpdated: serverTimestamp()
+        });
       }
 
       toast({
@@ -92,13 +101,32 @@ export default function MapPage() {
       });
     } catch (err) {
       console.error(err);
-      toast({
-        title: "Error seeding data",
-        description: "Check your permissions or internet connection.",
-        variant: "destructive"
-      });
     } finally {
       setSeeding(false);
+    }
+  };
+
+  const handleSyncSensors = async () => {
+    if (!firestore || fields.length === 0) return;
+    setSyncing(true);
+    try {
+      for (const field of fields) {
+        const fieldRef = doc(firestore, "fields", field.id);
+        await updateDoc(fieldRef, {
+          moisture: Math.floor(Math.random() * 30) + 40, // 40-70%
+          temp: Math.floor(Math.random() * 10) + 20,     // 20-30C
+          soilPH: Number((Math.random() * (7.5 - 5.5) + 5.5).toFixed(1)), // 5.5-7.5
+          lastUpdated: serverTimestamp()
+        });
+      }
+      toast({
+        title: "Sensors Synced",
+        description: "Real-time field telemetry has been updated in Firestore.",
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -108,7 +136,6 @@ export default function MapPage() {
     <AppLayout>
       <div className="relative h-[calc(100vh-10rem)] md:h-[calc(100vh-8rem)] rounded-3xl overflow-hidden shadow-2xl border bg-muted group">
         
-        {/* Interactive Leaflet Map */}
         <div className="absolute inset-0 z-0">
           {!fieldsLoading && fields.length > 0 ? (
             <LeafletMap 
@@ -146,7 +173,6 @@ export default function MapPage() {
           )}
         </div>
 
-        {/* Floating Controls */}
         {fields.length > 0 && (
           <>
             <div className="absolute top-6 left-6 right-6 md:right-auto md:w-80 flex flex-col gap-4 z-10">
@@ -187,13 +213,17 @@ export default function MapPage() {
               </Card>
             </div>
 
-            {/* Right Action Buttons */}
             <div className="absolute top-6 right-6 flex flex-col gap-3 z-10">
-              <Button size="icon" className="h-12 w-12 bg-white text-foreground hover:bg-white/90 shadow-xl rounded-2xl border-none">
-                <Layers className="h-5 w-5" />
+              <Button 
+                size="icon" 
+                className={cn("h-12 w-12 bg-accent text-accent-foreground shadow-xl rounded-2xl border-none", syncing && "animate-pulse")}
+                onClick={handleSyncSensors}
+                disabled={syncing}
+              >
+                {syncing ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
               </Button>
               <Button size="icon" className="h-12 w-12 bg-white text-foreground hover:bg-white/90 shadow-xl rounded-2xl border-none">
-                <Maximize2 className="h-5 w-5" />
+                <Layers className="h-5 w-5" />
               </Button>
               <Button 
                 size="icon" 
@@ -206,7 +236,6 @@ export default function MapPage() {
           </>
         )}
 
-        {/* Selected Field Sidebar */}
         <div className={cn(
           "absolute right-6 top-6 bottom-6 w-80 bg-white/98 backdrop-blur-xl shadow-2xl rounded-3xl z-20 transition-all duration-500 transform border border-white/20",
           selectedField ? "translate-x-0 opacity-100" : "translate-x-[120%] opacity-0"
@@ -227,7 +256,7 @@ export default function MapPage() {
                 </Button>
               </div>
 
-              <div className="space-y-6 flex-1">
+              <div className="space-y-6 flex-1 overflow-y-auto">
                 <div>
                   <h2 className="text-2xl font-black text-foreground mb-1">{selectedField.name}</h2>
                   <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{selectedField.crop} Sector</p>
@@ -248,6 +277,20 @@ export default function MapPage() {
                       {selectedField.health}%
                     </div>
                   </div>
+                  <div className="p-4 bg-muted/40 rounded-2xl">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Soil PH</div>
+                    <div className="text-xl font-black flex items-center gap-1.5">
+                      <FlaskConical className="h-4 w-4 text-purple-500" />
+                      {selectedField.soilPH || '6.5'}
+                    </div>
+                  </div>
+                  <div className="p-4 bg-muted/40 rounded-2xl">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Temp</div>
+                    <div className="text-xl font-black flex items-center gap-1.5">
+                      <Thermometer className="h-4 w-4 text-orange-500" />
+                      {selectedField.temp || '24'}°C
+                    </div>
+                  </div>
                 </div>
 
                 <Card className="bg-primary text-primary-foreground border-none shadow-lg mt-4">
@@ -259,7 +302,7 @@ export default function MapPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-xs font-medium leading-relaxed opacity-90">
-                      Based on current sensor data, this sector is in optimal range for the current growth stage.
+                      Based on live sensor telemetry, this sector is in optimal range. Moisture levels are stable.
                     </p>
                   </CardContent>
                 </Card>

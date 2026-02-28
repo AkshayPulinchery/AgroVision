@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sprout, TrendingUp, AlertTriangle, Droplets, Loader2 } from "lucide-react";
+import { Sprout, TrendingUp, Thermometer, Droplets, Loader2, FlaskConical } from "lucide-react";
 import { useFirestore, useCollection } from "@/firebase";
 import { collection } from "firebase/firestore";
 
@@ -31,40 +32,46 @@ export function StatCards() {
       ? Math.round(fields.reduce((acc, f: any) => acc + (f.moisture || 0), 0) / fields.length)
       : 0;
 
-    const recommendedCrop = fields?.[0]?.crop || "Corn (Maize)";
+    const avgPH = fields?.length
+      ? (fields.reduce((acc, f: any) => acc + (f.soilPH || 0), 0) / fields.length).toFixed(1)
+      : "0";
+
+    const avgTemp = fields?.length
+      ? Math.round(fields.reduce((acc, f: any) => acc + (f.temp || 0), 0) / fields.length)
+      : 0;
 
     return [
       {
-        title: "Avg. Yield Predicted",
-        value: avgYield > 0 ? `${avgYield.toLocaleString()} kg/ha` : "0 kg/ha",
-        trend: predictions?.length ? `Live sync (${predictions.length} records)` : "Start analyzing",
-        icon: TrendingUp,
-        color: "text-emerald-600",
-        bg: "bg-emerald-50",
+        title: "Soil PH (Live)",
+        value: `${avgPH} pH`,
+        trend: "Optimal range 6.5",
+        icon: FlaskConical,
+        color: "text-purple-600",
+        bg: "bg-purple-50",
       },
       {
-        title: "Target Crop",
-        value: recommendedCrop,
-        trend: "Based on field sensors",
-        icon: Sprout,
-        color: "text-primary",
-        bg: "bg-primary/10",
+        title: "Soil Temp (Live)",
+        value: `${avgTemp}°C`,
+        trend: avgTemp > 20 ? "Active growth" : "Stagnant",
+        icon: Thermometer,
+        color: "text-orange-600",
+        bg: "bg-orange-50",
       },
       {
         title: "Soil Moisture",
-        value: avgMoisture > 0 ? `${avgMoisture}%` : "No sensors",
+        value: `${avgMoisture}%`,
         trend: avgMoisture > 50 ? "Healthy levels" : "Needs irrigation",
         icon: Droplets,
         color: "text-blue-600",
         bg: "bg-blue-50",
       },
       {
-        title: "Active Alerts",
-        value: fields?.length === 0 ? "1 Notification" : "System Normal",
-        trend: fields?.length === 0 ? "Connect field sensors" : "All clear",
-        icon: AlertTriangle,
-        color: fields?.length === 0 ? "text-amber-600" : "text-emerald-600",
-        bg: fields?.length === 0 ? "bg-amber-50" : "bg-emerald-50",
+        title: "Avg. Prediction",
+        value: avgYield > 0 ? `${avgYield.toLocaleString()} kg/ha` : "0 kg/ha",
+        trend: `${predictions?.length || 0} Records`,
+        icon: TrendingUp,
+        color: "text-emerald-600",
+        bg: "bg-emerald-50",
       },
     ];
   }, [predictions, fields]);

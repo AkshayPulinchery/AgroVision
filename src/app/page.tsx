@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StatCards } from "@/components/dashboard/StatCards";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,8 @@ import {
   Map as MapIcon, 
   CloudRain,
   ThermometerSun,
-  Loader2
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -21,6 +23,14 @@ import { formatDistanceToNow } from "date-fns";
 
 export default function Dashboard() {
   const firestore = useFirestore();
+  const [weatherTime, setWeatherTime] = useState(new Date().toLocaleTimeString());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setWeatherTime(new Date().toLocaleTimeString());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
   
   const predictionsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -33,16 +43,28 @@ export default function Dashboard() {
   
   const { data: predictions, loading } = useCollection(predictionsQuery);
 
+  const fieldsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return collection(firestore, "fields");
+  }, [firestore]);
+
+  const { data: fields } = useCollection(fieldsQuery);
+
+  const avgTemp = useMemo(() => {
+    if (!fields || fields.length === 0) return 24;
+    return Math.round(fields.reduce((acc, f: any) => acc + (f.temp || 24), 0) / fields.length);
+  }, [fields]);
+
   return (
     <AppLayout>
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold text-foreground">
-              Welcome back, Farmer Joe!
+              Farm Command Center
             </h1>
             <p className="text-muted-foreground">
-              Here is your farm's real-time performance summary.
+              Real-time farm telemetry synced to project <code className="bg-muted px-1 rounded text-xs">studio-6018643022-dffb6</code>
             </p>
           </div>
           <Link href="/predict">
@@ -124,11 +146,15 @@ export default function Dashboard() {
           </Card>
 
           <div className="space-y-6">
-             <Card className="shadow-sm border-none bg-accent/5">
+             <Card className="shadow-sm border-none bg-accent/5 relative overflow-hidden">
+              <div className="absolute top-2 right-2 flex items-center gap-1 text-[8px] font-bold text-accent-foreground/40 uppercase">
+                <RefreshCw className="h-2 w-2 animate-spin" />
+                Live Sync
+              </div>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CloudRain className="h-5 w-5 text-primary" />
-                  Local Forecast
+                  Farm Weather
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -136,18 +162,18 @@ export default function Dashboard() {
                   <div className="flex items-center gap-3">
                     <ThermometerSun className="h-8 w-8 text-orange-500" />
                     <div>
-                      <div className="text-xl font-bold">28°C</div>
-                      <div className="text-xs text-muted-foreground">Partly Cloudy</div>
+                      <div className="text-xl font-bold">{avgTemp}°C</div>
+                      <div className="text-[10px] text-muted-foreground uppercase font-bold">{weatherTime}</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-semibold">Humid</div>
-                    <div className="text-xs text-muted-foreground">62%</div>
+                    <div className="text-sm font-semibold">Conditions</div>
+                    <div className="text-xs text-muted-foreground">Cloudy / Humid</div>
                   </div>
                 </div>
                 <Link href="/map" className="block">
                   <Button className="w-full justify-between h-12" variant="outline">
-                    Explore Heatmap
+                    Explore Farm Map
                     <MapIcon className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -168,7 +194,7 @@ export default function Dashboard() {
                </div>
                <CardContent className="p-4">
                   <p className="text-sm text-muted-foreground mb-4">
-                    Plan your next crop rotation based on AI yield analysis.
+                    Plan your next crop rotation based on real-time soil analysis.
                   </p>
                   <Link href="/planner">
                     <Button className="w-full" variant="secondary">
