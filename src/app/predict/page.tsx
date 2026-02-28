@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -17,7 +16,9 @@ import {
   ShieldCheck,
   FlaskConical,
   CloudRain,
-  Thermometer
+  Thermometer,
+  Sparkles,
+  Info
 } from "lucide-react";
 import { predictYield, PredictionOutput } from "@/lib/ml-model";
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer } from "recharts";
@@ -26,6 +27,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { analyzeYield, AnalyzeYieldOutput } from "@/ai/flows/analyze-yield-flow";
 
 export default function PredictPage() {
   const { toast } = useToast();
@@ -34,7 +36,9 @@ export default function PredictPage() {
   
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<PredictionOutput | null>(null);
+  const [aiInsight, setAiInsight] = useState<AnalyzeYieldOutput | null>(null);
   
   const [formData, setFormData] = useState({
     crop: "Corn",
@@ -46,10 +50,36 @@ export default function PredictPage() {
 
   const handlePredict = async () => {
     setLoading(true);
+    setAiInsight(null); // Clear previous AI insight
     await new Promise(r => setTimeout(r, 1500));
     const prediction = predictYield(formData);
     setResult(prediction);
     setLoading(false);
+  };
+
+  const handleAiDeepDive = async () => {
+    if (!result) return;
+    setAnalyzing(true);
+    try {
+      const insight = await analyzeYield({
+        ...formData,
+        predictedYield: result.yield
+      });
+      setAiInsight(insight);
+      toast({
+        title: "AI Analysis Complete",
+        description: "Deep dive insights are now available.",
+      });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "AI Error",
+        description: "Could not generate AI insight. Please check your API key.",
+        variant: "destructive"
+      });
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const handleSave = () => {
@@ -100,7 +130,6 @@ export default function PredictPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-          {/* Form */}
           <Card className="shadow-lg border-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -139,11 +168,6 @@ export default function PredictPage() {
                   step={0.1}
                   onValueChange={([val]) => setFormData({...formData, soilPH: val})}
                 />
-                <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>Acidic (4.0)</span>
-                  <span>Neutral (7.0)</span>
-                  <span>Alkaline (9.0)</span>
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -199,7 +223,6 @@ export default function PredictPage() {
             </CardContent>
           </Card>
 
-          {/* Results Area */}
           <div className="space-y-6">
             {!result && !loading && (
               <div className="h-full flex flex-col items-center justify-center p-8 bg-muted/20 border-2 border-dashed rounded-2xl text-center">
@@ -236,33 +259,39 @@ export default function PredictPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="shadow-md border-none">
-                  <CardHeader>
-                    <CardTitle className="text-base">Feature Importance</CardTitle>
-                    <CardDescription>What factors influenced this prediction most?</CardDescription>
-                  </CardHeader>
-                  <CardContent className="h-[200px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={result.importance} layout="vertical">
-                        <XAxis type="number" hide />
-                        <YAxis 
-                          dataKey="feature" 
-                          type="category" 
-                          tick={{ fontSize: 12 }} 
-                          width={100}
-                        />
-                        <Bar 
-                          dataKey="weight" 
-                          fill="hsl(var(--primary))" 
-                          radius={[0, 4, 4, 0]} 
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
+                {aiInsight ? (
+                  <Card className="border-none shadow-md bg-accent/10 border-accent/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-accent-foreground" />
+                        Smart AI Analysis
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">AI Insight</div>
+                        <p className="text-sm leading-relaxed">{aiInsight.insight}</p>
+                      </div>
+                      <div className="p-3 bg-white/50 rounded-lg border border-accent/10">
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Recommendation</div>
+                        <p className="text-sm font-medium">{aiInsight.recommendation}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-12 border-accent text-accent-foreground hover:bg-accent/5 font-bold gap-2"
+                    onClick={handleAiDeepDive}
+                    disabled={analyzing}
+                  >
+                    {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    Get AI Deep Dive Insight
+                  </Button>
+                )}
 
                 <div className="flex gap-4">
-                  <Button variant="outline" className="flex-1 h-12" onClick={() => setResult(null)}>
+                  <Button variant="outline" className="flex-1 h-12" onClick={() => {setResult(null); setAiInsight(null);}}>
                     Reset
                   </Button>
                   <Button 
