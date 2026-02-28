@@ -102,10 +102,10 @@ export default function PredictPage() {
   };
 
   const handleSave = () => {
-    if (!result || !firestore || !user) {
+    if (!result || !firestore) {
       toast({
         title: "Error",
-        description: "Must be signed in to save records.",
+        description: "Prediction result or database connection missing.",
         variant: "destructive"
       });
       return;
@@ -114,7 +114,7 @@ export default function PredictPage() {
     setSaving(true);
     const predictionRef = collection(firestore, "predictions");
     const data = {
-      userId: user.uid,
+      userId: user?.uid || "anonymous-farmer-id",
       ...formData,
       predictedYield: result.yield,
       confidence: result.confidence,

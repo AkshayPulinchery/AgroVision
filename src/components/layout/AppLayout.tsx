@@ -13,7 +13,8 @@ import {
   ClipboardCheck,
   Droplets,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -39,6 +40,7 @@ const navigation = [
   { name: "Predictions", href: "/predict", icon: LineChart },
   { name: "Recommendations", href: "/recommendations", icon: Sprout },
   { name: "Plan Season", href: "/planner", icon: ClipboardCheck },
+  { name: "Admin Portal", href: "/admin/manage-secret-portal", icon: ShieldCheck },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
