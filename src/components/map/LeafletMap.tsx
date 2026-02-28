@@ -2,17 +2,16 @@
 "use client";
 
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import L from "leaflet";
+import * as L from "leaflet";
 import { useEffect } from "react";
-import "leaflet/dist/leaflet.css";
 
 // Fix Leaflet marker icon issues in Next.js
-const customIcon = new L.DivIcon({
+const customIcon = typeof window !== 'undefined' ? new L.DivIcon({
   className: 'custom-div-icon',
   html: `<div class="w-10 h-10 bg-primary border-[6px] border-white rounded-full shadow-2xl transition-transform hover:scale-110 active:scale-95 z-20"></div>`,
   iconSize: [40, 40],
   iconAnchor: [20, 20],
-});
+}) : null;
 
 type Field = {
   id: string;
@@ -45,6 +44,8 @@ export default function LeafletMap({ fields, onSelectField, selectedField }: Lea
     ? [selectedField.lat, selectedField.lng] 
     : [fields[0].lat, fields[0].lng];
 
+  if (typeof window === 'undefined') return null;
+
   return (
     <MapContainer
       center={center}
@@ -61,7 +62,7 @@ export default function LeafletMap({ fields, onSelectField, selectedField }: Lea
         <Marker
           key={field.id}
           position={[field.lat, field.lng]}
-          icon={customIcon}
+          icon={customIcon || undefined}
           eventHandlers={{
             click: () => onSelectField(field),
           }}
