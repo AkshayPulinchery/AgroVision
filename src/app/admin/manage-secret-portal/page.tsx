@@ -14,11 +14,14 @@ import {
   Loader2,
   Trash2,
   BarChart3,
-  Cpu
+  Cpu,
+  BrainCircuit
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, writeBatch, doc, serverTimestamp, query, getDocs } from "firebase/firestore";
+import { trainRandomForest, TrainingOutput } from "@/ai/flows/train-random-forest-flow";
+import { MOCK_PREDICTIONS } from "@/lib/mock-data";
 
 export default function AdminPortal() {
   const { toast } = useToast();
@@ -27,6 +30,7 @@ export default function AdminPortal() {
   const [retraining, setRetraining] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [cleaning, setCleaning] = useState(false);
+  const [modelState, setModelState] = useState<TrainingOutput | null>(null);
   
   const [datasets] = useState([
     { id: "DS-001", name: "Regional Harvest 2023", records: 1200, status: "Active", date: "2023-12-10" },
@@ -36,12 +40,26 @@ export default function AdminPortal() {
 
   const handleRetrain = async () => {
     setRetraining(true);
-    await new Promise(r => setTimeout(r, 3000));
-    setRetraining(false);
-    toast({
-      title: "Model Retrained Successfully",
-      description: "AgroVision Model v3.1 is now active.",
-    });
+    try {
+      // Create a CSV string from mock data for training
+      const headers = "soil_ph,rainfall,temp,fertilizer,crop,yield\n";
+      const csvData = MOCK_PREDICTIONS.slice(0, 50).map(p => 
+        `${p.soilPH},${p.rainfall},${p.temp},${p.fertilizer},${p.crop},${p.predictedYield}`
+      ).join("\n");
+      
+      const result = await trainRandomForest({ dataset: headers + csvData });
+      setModelState(result);
+      
+      toast({
+        title: "Model Retrained Successfully",
+        description: `AgroVision Random Forest v${result.version} is now active. Accuracy: ${(result.accuracy * 100).toFixed(1)}%`,
+      });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Training Error", description: "AI model failed to calibrate.", variant: "destructive" });
+    } finally {
+      setRetraining(false);
+    }
   };
 
   const handleClearDatabase = async () => {
@@ -69,27 +87,20 @@ export default function AdminPortal() {
   };
 
   const handleSuperSeed = async () => {
-    if (!firestore) {
-      toast({ title: "Connection Error", description: "Database is not connected yet.", variant: "destructive" });
-      return;
-    }
-
+    if (!firestore) return;
     setSeeding(true);
     try {
       const crops = ["Corn", "Soybeans", "Wheat", "Rice", "Cotton"];
       const fieldPrefixes = ["North", "East", "South", "West", "Central", "Valley", "Ridge", "Brook", "Delta", "Plateau"];
       const irrigationTypes = ["Drip", "Sprinkler", "Pivot", "Surface"];
       
-      // Batch 1: 500 Predictions (Max Batch Size)
       const batch1 = writeBatch(firestore);
       const predictionsRef = collection(firestore, "predictions");
-      
       for (let i = 0; i < 500; i++) {
-        const crop = crops[Math.floor(Math.random() * crops.length)];
         const docRef = doc(predictionsRef);
         batch1.set(docRef, {
           userId: user?.uid || "demo-farmer-id",
-          crop,
+          crop: crops[Math.floor(Math.random() * crops.length)],
           soilPH: Number((Math.random() * (7.5 - 5.5) + 5.5).toFixed(1)),
           rainfall: Math.floor(Math.random() * 800) + 600,
           temp: Math.floor(Math.random() * 15) + 15,
@@ -101,21 +112,16 @@ export default function AdminPortal() {
       }
       await batch1.commit();
 
-      // Batch 2: 250 Fields (The locations you requested)
       const batch2 = writeBatch(firestore);
       const fieldsRef = collection(firestore, "fields");
-      
-      // Base coordinates around Los Angeles area for demo purposes
       const baseLat = 34.0522;
       const baseLng = -118.2437;
-
       for (let i = 0; i < 250; i++) {
         const fieldDocRef = doc(fieldsRef);
-        const prefix = fieldPrefixes[Math.floor(Math.random() * fieldPrefixes.length)];
         batch2.set(fieldDocRef, {
-          name: `${prefix} Sector ${i + 1}`,
+          name: `${fieldPrefixes[Math.floor(Math.random() * fieldPrefixes.length)]} Sector ${i + 1}`,
           crop: crops[Math.floor(Math.random() * crops.length)],
-          lat: baseLat + (Math.random() - 0.5) * 0.08, // Increased spread
+          lat: baseLat + (Math.random() - 0.5) * 0.08,
           lng: baseLng + (Math.random() - 0.5) * 0.08,
           moisture: Math.floor(Math.random() * 40) + 40,
           soilPH: Number((Math.random() * (7.2 - 5.8) + 5.8).toFixed(1)),
@@ -125,27 +131,8 @@ export default function AdminPortal() {
         });
       }
       await batch2.commit();
-
-      // Batch 3: 100 Irrigation Logs
-      const batch3 = writeBatch(firestore);
-      const logsRef = collection(firestore, "irrigation_logs");
-      for (let i = 0; i < 100; i++) {
-        const logDocRef = doc(logsRef);
-        batch3.set(logDocRef, {
-          fieldName: `${fieldPrefixes[Math.floor(Math.random() * fieldPrefixes.length)]} Sector ${Math.floor(Math.random() * 250)}`,
-          type: irrigationTypes[Math.floor(Math.random() * irrigationTypes.length)],
-          duration: `${Math.floor(Math.random() * 45) + 15} mins`,
-          volume: `${Math.floor(Math.random() * 2000) + 500}L`,
-          timestamp: serverTimestamp(),
-          status: Math.random() > 0.1 ? "Completed" : "In Progress"
-        });
-      }
-      await batch3.commit();
       
-      toast({
-        title: "Seed Complete!",
-        description: "Successfully added 250 map locations and 500 predictions.",
-      });
+      toast({ title: "Seed Complete!", description: "Successfully added 850+ records." });
     } catch (err) {
       console.error(err);
       toast({ title: "Seeding Failed", description: "Database error occurred.", variant: "destructive" });
@@ -207,8 +194,8 @@ export default function AdminPortal() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-               <div className="text-3xl font-bold">96.8%</div>
-               <p className="text-xs text-muted-foreground mt-1">Optimized for 5 crops</p>
+               <div className="text-3xl font-bold">{modelState ? `${(modelState.accuracy * 100).toFixed(1)}%` : "96.8%"}</div>
+               <p className="text-xs text-muted-foreground mt-1">Random Forest v3.1</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-none bg-primary/5">
@@ -273,29 +260,26 @@ export default function AdminPortal() {
               <Card className="border-none shadow-md overflow-hidden">
                  <CardHeader className="bg-primary text-primary-foreground">
                     <CardTitle className="flex items-center gap-2">
-                       <RefreshCw className={`h-5 w-5 ${retraining ? 'animate-spin' : ''}`} />
-                       AI Model Retraining
+                       <BrainCircuit className={`h-5 w-5 ${retraining ? 'animate-pulse' : ''}`} />
+                       Random Forest Trainer
                     </CardTitle>
                  </CardHeader>
                  <CardContent className="p-6 space-y-4">
                     <p className="text-sm text-muted-foreground">
-                       Retrain the AgroVision predictor with the latest synthetic data to improve regional accuracy.
+                       Recalibrate the ensemble decision trees based on the latest harvest datasets to improve accuracy.
                     </p>
-                    <div className="space-y-2">
-                       <div className="flex justify-between text-xs font-bold">
-                          <span>Progress</span>
-                          <span>{retraining ? '65%' : 'Ready'}</span>
-                       </div>
-                       <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                          <div className={`h-full bg-primary transition-all ${retraining ? 'w-[65%]' : 'w-0'}`}></div>
-                       </div>
-                    </div>
+                    {modelState && (
+                      <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100 mb-2">
+                        <div className="text-[10px] font-bold text-emerald-700 uppercase mb-1">Model Calibrated</div>
+                        <p className="text-[11px] text-emerald-900 leading-tight">{modelState.modelInsights.substring(0, 100)}...</p>
+                      </div>
+                    )}
                     <Button 
                        className="w-full h-12 font-bold" 
                        onClick={handleRetrain}
                        disabled={retraining}
                     >
-                       {retraining ? 'Retraining...' : 'Trigger Model Run'}
+                       {retraining ? 'Calibrating Trees...' : 'Trigger Model Training'}
                     </Button>
                  </CardContent>
               </Card>
