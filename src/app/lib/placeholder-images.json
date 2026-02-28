@@ -1,3 +1,4 @@
+
 {
   "placeholderImages": [
     {
@@ -11,6 +12,12 @@
       "description": "Farmer inspecting soil quality",
       "imageUrl": "https://picsum.photos/seed/agri2/600/400",
       "imageHint": "soil inspection"
+    },
+    {
+      "id": "satellite-map",
+      "description": "Satellite view of agricultural fields for mapping",
+      "imageUrl": "https://picsum.photos/seed/map42/1600/1200",
+      "imageHint": "satellite farm"
     }
   ]
 }
