@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sprout, TrendingUp, AlertTriangle, Droplets, Loader2 } from "lucide-react";
 import { useFirestore, useCollection } from "@/firebase";
-import { collection, query, limit } from "firebase/firestore";
+import { collection } from "firebase/firestore";
 
 export function StatCards() {
   const firestore = useFirestore();
@@ -36,8 +36,8 @@ export function StatCards() {
     return [
       {
         title: "Avg. Yield Predicted",
-        value: avgYield > 0 ? `${avgYield.toLocaleString()} kg/ha` : "No data",
-        trend: predictions?.length ? `Based on ${predictions.length} records` : "Start analyzing",
+        value: avgYield > 0 ? `${avgYield.toLocaleString()} kg/ha` : "0 kg/ha",
+        trend: predictions?.length ? `Live sync (${predictions.length} records)` : "Start analyzing",
         icon: TrendingUp,
         color: "text-emerald-600",
         bg: "bg-emerald-50",
@@ -45,7 +45,7 @@ export function StatCards() {
       {
         title: "Target Crop",
         value: recommendedCrop,
-        trend: "Optimal for region",
+        trend: "Based on field sensors",
         icon: Sprout,
         color: "text-primary",
         bg: "bg-primary/10",
@@ -53,18 +53,18 @@ export function StatCards() {
       {
         title: "Soil Moisture",
         value: avgMoisture > 0 ? `${avgMoisture}%` : "No sensors",
-        trend: avgMoisture > 50 ? "Healthy levels" : "Requires check",
+        trend: avgMoisture > 50 ? "Healthy levels" : "Needs irrigation",
         icon: Droplets,
         color: "text-blue-600",
         bg: "bg-blue-50",
       },
       {
         title: "Active Alerts",
-        value: fields?.length === 0 ? "1 Notification" : "0 Notifications",
-        trend: fields?.length === 0 ? "Connect field sensors" : "System normal",
+        value: fields?.length === 0 ? "1 Notification" : "System Normal",
+        trend: fields?.length === 0 ? "Connect field sensors" : "All clear",
         icon: AlertTriangle,
-        color: "text-amber-600",
-        bg: "bg-amber-50",
+        color: fields?.length === 0 ? "text-amber-600" : "text-emerald-600",
+        bg: fields?.length === 0 ? "bg-amber-50" : "bg-emerald-50",
       },
     ];
   }, [predictions, fields]);

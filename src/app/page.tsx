@@ -36,7 +36,6 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="space-y-8">
-        {/* Welcome Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold text-foreground">
@@ -54,7 +53,6 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* Hero Alert */}
         <Card className="bg-primary text-primary-foreground border-none shadow-lg overflow-hidden relative">
           <div className="absolute right-0 top-0 opacity-10 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
              <Sprout className="w-64 h-64" />
@@ -76,16 +74,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Stats Grid - Now Real-Time */}
         <StatCards />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Predictions - Real Data from Firestore */}
           <Card className="lg:col-span-2 shadow-sm border-none">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Recent Predictions</CardTitle>
-                <CardDescription>Latest AI yield estimations from your database</CardDescription>
+                <CardDescription>Latest AI yield estimations synced in real-time</CardDescription>
               </div>
               <Link href="/predict">
                 <Button variant="ghost" className="text-primary font-bold">New Forecast</Button>
@@ -127,7 +123,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions / Weather */}
           <div className="space-y-6">
              <Card className="shadow-sm border-none bg-accent/5">
               <CardHeader>
