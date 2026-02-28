@@ -10,7 +10,8 @@ import {
   Bell, 
   User,
   LineChart,
-  ClipboardCheck
+  ClipboardCheck,
+  Droplets
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Farm Map", href: "/map", icon: MapIcon },
+  { name: "Water Intelligence", href: "/water-intelligence", icon: Droplets },
   { name: "Predictions", href: "/predict", icon: LineChart },
   { name: "Recommendations", href: "/recommendations", icon: Sprout },
   { name: "Plan Season", href: "/planner", icon: ClipboardCheck },
@@ -77,7 +79,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation (Simpler Experience) */}
+      {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t flex items-center justify-around px-2 z-40">
         {navigation.slice(0, 4).map((item) => {
           const Icon = item.icon;
