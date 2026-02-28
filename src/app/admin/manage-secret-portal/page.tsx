@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
-import { collection, writeBatch, doc, serverTimestamp, query, getDocs, deleteDoc } from "firebase/firestore";
+import { collection, writeBatch, doc, serverTimestamp, query, getDocs } from "firebase/firestore";
 
 export default function AdminPortal() {
   const { toast } = useToast();
@@ -40,7 +40,7 @@ export default function AdminPortal() {
     setRetraining(false);
     toast({
       title: "Model Retrained Successfully",
-      description: "Yield Predictor RF-Model v2.4 is now active.",
+      description: "AgroVision Model v3.1 is now active.",
     });
   };
 
@@ -52,9 +52,12 @@ export default function AdminPortal() {
       for (const colName of collections) {
         const q = query(collection(firestore, colName));
         const snapshot = await getDocs(q);
-        const batch = writeBatch(firestore);
-        snapshot.docs.forEach((d) => batch.delete(d.ref));
-        await batch.commit();
+        const batchSize = 500;
+        for (let i = 0; i < snapshot.docs.length; i += batchSize) {
+          const batch = writeBatch(firestore);
+          snapshot.docs.slice(i, i + batchSize).forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+        }
       }
       toast({ title: "Database Cleared", description: "All prototype data has been removed." });
     } catch (err) {
@@ -74,18 +77,18 @@ export default function AdminPortal() {
     setSeeding(true);
     try {
       const crops = ["Corn", "Soybeans", "Wheat", "Rice", "Cotton"];
-      const fieldNames = ["North Hill", "East Brook", "Valley Basin", "South Plateau", "River Delta"];
+      const fieldPrefixes = ["North", "East", "South", "West", "Central", "Valley", "Ridge", "Brook", "Delta", "Plateau"];
       const irrigationTypes = ["Drip", "Sprinkler", "Pivot", "Surface"];
       
-      // Batch 1: 450 Predictions
+      // Batch 1: 500 Predictions (Max Batch Size)
       const batch1 = writeBatch(firestore);
       const predictionsRef = collection(firestore, "predictions");
       
-      for (let i = 0; i < 450; i++) {
+      for (let i = 0; i < 500; i++) {
         const crop = crops[Math.floor(Math.random() * crops.length)];
         const docRef = doc(predictionsRef);
         batch1.set(docRef, {
-          userId: user?.uid || "demo-farmer-id", // Use demo ID if not logged in
+          userId: user?.uid || "demo-farmer-id",
           crop,
           soilPH: Number((Math.random() * (7.5 - 5.5) + 5.5).toFixed(1)),
           rainfall: Math.floor(Math.random() * 800) + 600,
@@ -98,18 +101,22 @@ export default function AdminPortal() {
       }
       await batch1.commit();
 
-      // Batch 2: 25 Fields and 50 Irrigation Logs
+      // Batch 2: 250 Fields (The locations you requested)
       const batch2 = writeBatch(firestore);
       const fieldsRef = collection(firestore, "fields");
-      const logsRef = collection(firestore, "irrigation_logs");
+      
+      // Base coordinates around Los Angeles area for demo purposes
+      const baseLat = 34.0522;
+      const baseLng = -118.2437;
 
-      for (let i = 0; i < 25; i++) {
+      for (let i = 0; i < 250; i++) {
         const fieldDocRef = doc(fieldsRef);
+        const prefix = fieldPrefixes[Math.floor(Math.random() * fieldPrefixes.length)];
         batch2.set(fieldDocRef, {
-          name: `${fieldNames[i % fieldNames.length]} Sector ${Math.floor(i / 5) + 1}`,
+          name: `${prefix} Sector ${i + 1}`,
           crop: crops[Math.floor(Math.random() * crops.length)],
-          lat: 34.0522 + (Math.random() - 0.5) * 0.05,
-          lng: -118.2437 + (Math.random() - 0.5) * 0.05,
+          lat: baseLat + (Math.random() - 0.5) * 0.08, // Increased spread
+          lng: baseLng + (Math.random() - 0.5) * 0.08,
           moisture: Math.floor(Math.random() * 40) + 40,
           soilPH: Number((Math.random() * (7.2 - 5.8) + 5.8).toFixed(1)),
           temp: Math.floor(Math.random() * 10) + 20,
@@ -117,11 +124,15 @@ export default function AdminPortal() {
           lastUpdated: serverTimestamp()
         });
       }
+      await batch2.commit();
 
-      for (let i = 0; i < 50; i++) {
+      // Batch 3: 100 Irrigation Logs
+      const batch3 = writeBatch(firestore);
+      const logsRef = collection(firestore, "irrigation_logs");
+      for (let i = 0; i < 100; i++) {
         const logDocRef = doc(logsRef);
-        batch2.set(logDocRef, {
-          fieldName: fieldNames[Math.floor(Math.random() * fieldNames.length)],
+        batch3.set(logDocRef, {
+          fieldName: `${fieldPrefixes[Math.floor(Math.random() * fieldPrefixes.length)]} Sector ${Math.floor(Math.random() * 250)}`,
           type: irrigationTypes[Math.floor(Math.random() * irrigationTypes.length)],
           duration: `${Math.floor(Math.random() * 45) + 15} mins`,
           volume: `${Math.floor(Math.random() * 2000) + 500}L`,
@@ -129,16 +140,15 @@ export default function AdminPortal() {
           status: Math.random() > 0.1 ? "Completed" : "In Progress"
         });
       }
-      
-      await batch2.commit();
+      await batch3.commit();
       
       toast({
-        title: "Event Ready!",
-        description: "500+ records successfully seeded across all farm sectors.",
+        title: "Seed Complete!",
+        description: "Successfully added 250 map locations and 500 predictions.",
       });
     } catch (err) {
       console.error(err);
-      toast({ title: "Seeding Failed", description: "Database batch limit or permission error.", variant: "destructive" });
+      toast({ title: "Seeding Failed", description: "Database error occurred.", variant: "destructive" });
     } finally {
       setSeeding(false);
     }
@@ -163,7 +173,7 @@ export default function AdminPortal() {
                 disabled={cleaning || seeding}
              >
                 {cleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                Wipe Prototype Data
+                Wipe Database
              </Button>
              <Button 
                 className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90 h-10 px-6 font-bold shadow-lg"
@@ -171,7 +181,7 @@ export default function AdminPortal() {
                 disabled={seeding || cleaning}
              >
                 {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                Super Seed (500+ Records)
+                Super Seed (850+ Records)
              </Button>
           </div>
         </div>
@@ -181,12 +191,12 @@ export default function AdminPortal() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                  <Database className="h-4 w-4 text-primary" />
-                 Total Data Points
+                 Map Density
               </CardTitle>
             </CardHeader>
             <CardContent>
-               <div className="text-3xl font-bold">2.45M</div>
-               <p className="text-xs text-muted-foreground mt-1">+15% this month</p>
+               <div className="text-3xl font-bold">250 Nodes</div>
+               <p className="text-xs text-muted-foreground mt-1">Active sensor telemetry</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-none bg-primary/5">
@@ -197,20 +207,20 @@ export default function AdminPortal() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-               <div className="text-3xl font-bold">94.2%</div>
-               <p className="text-xs text-muted-foreground mt-1">Random Forest v2.3</p>
+               <div className="text-3xl font-bold">96.8%</div>
+               <p className="text-xs text-muted-foreground mt-1">Optimized for 5 crops</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm border-none bg-primary/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                  <BarChart3 className="h-4 w-4 text-primary" />
-                 Active Farmers
+                 Prototype Scope
               </CardTitle>
             </CardHeader>
             <CardContent>
-               <div className="text-3xl font-bold">12,482</div>
-               <p className="text-xs text-muted-foreground mt-1">Across 4 regions</p>
+               <div className="text-3xl font-bold">Global Scale</div>
+               <p className="text-xs text-muted-foreground mt-1">Multi-region ready</p>
             </CardContent>
           </Card>
         </div>
@@ -264,20 +274,20 @@ export default function AdminPortal() {
                  <CardHeader className="bg-primary text-primary-foreground">
                     <CardTitle className="flex items-center gap-2">
                        <RefreshCw className={`h-5 w-5 ${retraining ? 'animate-spin' : ''}`} />
-                       Model Training
+                       AI Model Retraining
                     </CardTitle>
                  </CardHeader>
                  <CardContent className="p-6 space-y-4">
                     <p className="text-sm text-muted-foreground">
-                       Retrain the Random Forest regressor with latest datasets to improve yield prediction accuracy.
+                       Retrain the AgroVision predictor with the latest synthetic data to improve regional accuracy.
                     </p>
                     <div className="space-y-2">
                        <div className="flex justify-between text-xs font-bold">
                           <span>Progress</span>
-                          <span>{retraining ? '45%' : 'Last run 2 days ago'}</span>
+                          <span>{retraining ? '65%' : 'Ready'}</span>
                        </div>
                        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                          <div className={`h-full bg-primary transition-all ${retraining ? 'w-[45%]' : 'w-full'}`}></div>
+                          <div className={`h-full bg-primary transition-all ${retraining ? 'w-[65%]' : 'w-0'}`}></div>
                        </div>
                     </div>
                     <Button 
@@ -285,7 +295,7 @@ export default function AdminPortal() {
                        onClick={handleRetrain}
                        disabled={retraining}
                     >
-                       {retraining ? 'Training...' : 'Trigger Retraining'}
+                       {retraining ? 'Retraining...' : 'Trigger Model Run'}
                     </Button>
                  </CardContent>
               </Card>
@@ -299,12 +309,12 @@ export default function AdminPortal() {
                  </CardHeader>
                  <CardContent className="space-y-2">
                     <div className="flex items-center justify-between p-2 hover:bg-muted rounded-lg cursor-pointer">
-                       <span className="text-sm font-medium">Rec Logic Threshold</span>
-                       <span className="text-xs text-primary font-bold">0.85</span>
+                       <span className="text-sm font-medium">Map Cluster Threshold</span>
+                       <span className="text-xs text-primary font-bold">50</span>
                     </div>
                     <div className="flex items-center justify-between p-2 hover:bg-muted rounded-lg cursor-pointer">
-                       <span className="text-sm font-medium">Feature importance viz</span>
-                       <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">Enabled</span>
+                       <span className="text-sm font-medium">Real-time Telemetry</span>
+                       <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">Active</span>
                     </div>
                  </CardContent>
               </Card>
