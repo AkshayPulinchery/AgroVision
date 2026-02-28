@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
@@ -55,8 +54,9 @@ export default function Dashboard() {
   }, [dbPredictions]);
 
   const avgTemp = useMemo(() => {
+    if (!isMounted) return 0;
     return Math.round(MOCK_FIELDS.reduce((acc, f) => acc + (f.temp || 24), 0) / MOCK_FIELDS.length);
-  }, []);
+  }, [isMounted]);
 
   return (
     <AppLayout>
@@ -160,7 +160,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-3">
                     <ThermometerSun className="h-8 w-8 text-orange-500" />
                     <div>
-                      <div className="text-xl font-bold">{avgTemp}°C</div>
+                      <div className="text-xl font-bold">{isMounted ? `${avgTemp}°C` : "--°C"}</div>
                       <div className="text-[10px] text-muted-foreground uppercase font-bold">
                         {isMounted ? weatherTime : "--:--:--"}
                       </div>

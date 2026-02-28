@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Droplets, FlaskConical, BarChart3 } from "lucide-react";
 import { useFirestore, useCollection } from "@/firebase";
@@ -10,6 +9,7 @@ import { MOCK_FIELDS, MOCK_PREDICTIONS } from "@/lib/mock-data";
 
 export function StatCards() {
   const firestore = useFirestore();
+  const [mounted, setMounted] = useState(false);
 
   const predictionsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -24,7 +24,13 @@ export function StatCards() {
   const { data: dbPredictions } = useCollection(predictionsQuery);
   const { data: dbFields } = useCollection(fieldsQuery);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const stats = useMemo(() => {
+    if (!mounted) return [];
+
     // Merge DB and Mock for statistics
     const allPredictions = [...MOCK_PREDICTIONS, ...(dbPredictions || [])];
     const allFields = [...MOCK_FIELDS, ...(dbFields || [])];
@@ -75,7 +81,17 @@ export function StatCards() {
         bg: "bg-emerald-50",
       },
     ];
-  }, [dbPredictions, dbFields]);
+  }, [dbPredictions, dbFields, mounted]);
+
+  if (!mounted) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="h-32 animate-pulse bg-muted/50 border-none" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
