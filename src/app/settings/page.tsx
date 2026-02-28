@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -94,7 +93,7 @@ export default function SettingsPage() {
             <Card className="border-none shadow-lg">
               <CardHeader>
                 <CardTitle>Telemetry Settings</CardTitle>
-                <CardDescription>Configure how your sensors sync with the AgriYield cloud.</CardDescription>
+                <CardDescription>Configure how your sensors sync with the AgroVision cloud.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">

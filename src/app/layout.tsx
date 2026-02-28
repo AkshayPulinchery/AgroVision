@@ -4,7 +4,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'AgriYield AI - Smart Farming',
+  title: 'AgroVision - Smart Farming',
   description: 'AI-powered crop yield prediction and farm management',
 };
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -46,7 +45,7 @@ export default function LoginPage() {
         }
         toast({
           title: "Account Created",
-          description: "Welcome to AgriYield AI!",
+          description: "Welcome to AgroVision!",
         });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
@@ -93,7 +92,7 @@ export default function LoginPage() {
             {isSignUp ? "Join the Farm" : "Welcome Back"}
           </CardTitle>
           <CardDescription>
-            AgriYield AI: Smart Farming for a Sustainable Future
+            AgroVision: Smart Farming for a Sustainable Future
           </CardDescription>
         </CardHeader>
         <CardContent className="p-8 space-y-6">

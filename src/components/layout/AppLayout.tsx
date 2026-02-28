@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -73,7 +72,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Sprout className="h-6 w-6 text-primary-foreground" />
             </div>
             <span className="text-xl font-headline font-bold text-primary tracking-tight hidden sm:inline">
-              AgriYield AI
+              AgroVision
             </span>
           </div>
         </div>
