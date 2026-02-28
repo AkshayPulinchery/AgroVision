@@ -3,21 +3,20 @@
 
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import * as L from "leaflet";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, memo } from "react";
 
-// Fix Leaflet marker icon issues in Next.js
+// Optimized custom icon with reduced DOM nodes
 const getCustomIcon = (color: string = 'hsl(var(--primary))') => {
   if (typeof window === 'undefined') return null;
   return new L.DivIcon({
     className: 'custom-div-icon',
     html: `
       <div class="relative flex items-center justify-center">
-        <div class="absolute w-12 h-12 bg-white/20 rounded-full animate-ping"></div>
-        <div class="w-10 h-10 bg-primary border-[6px] border-white rounded-full shadow-2xl transition-transform hover:scale-125 z-20" style="background-color: ${color}"></div>
+        <div class="w-8 h-8 bg-primary border-[4px] border-white rounded-full shadow-lg transition-transform hover:scale-110 z-20" style="background-color: ${color}"></div>
       </div>
     `,
-    iconSize: [48, 48],
-    iconAnchor: [24, 24],
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
   });
 };
 
@@ -37,16 +36,45 @@ interface LeafletMapProps {
   selectedField: Field | null;
 }
 
+// Memoized Marker for performance with real-time updates
+const FieldMarker = memo(({ field, icon, onClick }: { field: Field, icon: any, onClick: (f: Field) => void }) => (
+  <Marker
+    position={[field.lat, field.lng]}
+    icon={icon || undefined}
+    eventHandlers={{
+      click: () => onClick(field),
+    }}
+  >
+    <Popup className="custom-popup">
+      <div className="p-1 min-w-[120px]">
+        <div className="text-[10px] font-bold text-primary uppercase tracking-tighter mb-1">{field.crop} Sector</div>
+        <h3 className="font-bold text-foreground leading-none mb-2">{field.name}</h3>
+        <div className="flex items-center justify-between gap-4 border-t pt-2">
+          <div className="text-center">
+            <div className="text-[9px] text-muted-foreground uppercase font-bold">Health</div>
+            <div className="text-sm font-black text-emerald-600">{field.health}%</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[9px] text-muted-foreground uppercase font-bold">Moist</div>
+            <div className="text-sm font-black text-blue-600">{field.moisture}%</div>
+          </div>
+        </div>
+      </div>
+    </Popup>
+  </Marker>
+));
+FieldMarker.displayName = 'FieldMarker';
+
 function MapUpdater({ center }: { center: [number, number] }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, 15, { animate: true });
+    // Using immediate setView for faster navigation feel
+    map.setView(center, map.getZoom(), { animate: true, duration: 0.5 });
   }, [center, map]);
   return null;
 }
 
-export default function LeafletMap({ fields, onSelectField, selectedField }: LeafletMapProps) {
-  // Center map on fields or a default location (Los Angeles as example)
+function LeafletMap({ fields, onSelectField, selectedField }: LeafletMapProps) {
   const defaultCenter: [number, number] = [34.0522, -118.2437];
   
   const center: [number, number] = useMemo(() => {
@@ -66,38 +94,20 @@ export default function LeafletMap({ fields, onSelectField, selectedField }: Lea
       style={{ height: "100%", width: "100%", zIndex: 0 }}
       zoomControl={false}
       scrollWheelZoom={true}
+      preferCanvas={true} // Uses HTML5 Canvas for marker rendering (much faster)
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        attribution='&copy; OpenStreetMap'
         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
       />
       
       {fields.map((field) => (
-        <Marker
+        <FieldMarker
           key={field.id}
-          position={[field.lat, field.lng]}
-          icon={icon || undefined}
-          eventHandlers={{
-            click: () => onSelectField(field),
-          }}
-        >
-          <Popup className="custom-popup">
-            <div className="p-1 min-w-[120px]">
-              <div className="text-[10px] font-bold text-primary uppercase tracking-tighter mb-1">{field.crop} Sector</div>
-              <h3 className="font-black text-foreground leading-none mb-2">{field.name}</h3>
-              <div className="flex items-center justify-between gap-4 border-t pt-2">
-                <div className="text-center">
-                  <div className="text-[9px] text-muted-foreground uppercase font-bold">Health</div>
-                  <div className="text-sm font-black text-emerald-600">{field.health}%</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[9px] text-muted-foreground uppercase font-bold">Moist</div>
-                  <div className="text-sm font-black text-blue-600">{field.moisture}%</div>
-                </div>
-              </div>
-            </div>
-          </Popup>
-        </Marker>
+          field={field}
+          icon={icon}
+          onClick={onSelectField}
+        />
       ))}
 
       <MapUpdater center={center} />
@@ -105,3 +115,4 @@ export default function LeafletMap({ fields, onSelectField, selectedField }: Lea
   );
 }
 
+export default memo(LeafletMap);
